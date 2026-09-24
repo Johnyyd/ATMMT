@@ -132,23 +132,12 @@ Trong giai đoạn này, kẻ tấn công tìm cách xác định xem hệ thố
 
 Sau khi biết được tài khoản mục tiêu là `admin`, kẻ tấn công lợi dụng tiếp các sơ hở sau để tấn công vét cạn mật khẩu:
 
-### Sơ hở 3.1: Lỗ hổng Bypass cơ chế Giới hạn tần suất (Rate Limiting Bypass)
-- **Tập tin liên quan:** `web/backend/app/rate_limit.py` (Dòng 8 - 16 và Dòng 47 - 66)
+### Sơ hở 3.1: Hoàn toàn không có giới hạn tần suất (No Rate Limiting trên nhánh main)
+- **Tập tin liên quan:** `web/backend/app/rate_limit.py`
 - **Bản chất kỹ thuật:**
-  Backend có viết cơ chế giới hạn 5 lần thử / 15 phút, nhưng tồn tại 2 sơ hở cực lớn:
-  1. **Tin tưởng Header `X-Forwarded-For` từ client:**
-     ```python
-     forwarded = request.headers.get("X-Forwarded-For")
-     if forwarded:
-         return forwarded.split(",")[0].strip()
-     ```
-     Hệ thống lấy IP từ header do chính client tự gửi. Kẻ tấn công chỉ cần đổi giá trị `X-Forwarded-For: 10.0.0.1`, `X-Forwarded-For: 10.0.0.2` trong mỗi request là bộ đếm số lần thử của hệ thống bị qua mặt hoàn toàn.
-  2. **Tồn tại Backdoor `"testclient"`:**
-     ```python
-     if client_ip == "testclient":
-         return  # Bỏ qua hoàn toàn rate limit!
-     ```
-     Chỉ cần đính kèm header `X-Forwarded-For: testclient`, rate limiter sẽ bị vô hiệu hóa 100%.
+  - Trên nhánh mục tiêu tấn công (`main`), hàm `rate_limiter` và `auth_rate_limiter` đã được vô hiệu hóa hoàn toàn (`return` trực tiếp).
+  - Hệ thống không giới hạn số lượng request thử nghiệm, không trả về mã lỗi HTTP 429 Too Many Requests đối với endpoint xác thực `POST /api/auth/token`.
+- **Ý nghĩa đối với kẻ tấn công:** Kẻ tấn công có thể sử dụng các công cụ tự động hóa như Burp Suite Intruder, Hydra, ffuf để gửi hàng nghìn request thử mật khẩu liên tục mà không bị nghẽn mạng hay bị hệ thống chặn IP.
 
 ### Sơ hở 3.2: Lộ Endpoint xác thực chuẩn dạng thuần (`POST /api/auth/token`)
 - **Tập tin liên quan:** `web/backend/app/routers/auth.py` (Dòng 83 - 98)
@@ -244,11 +233,11 @@ Nhóm Kỹ thuật và Video gồm 3 thành viên sẽ tiến hành thực nghi�
   4. **Bước 4: Thực hiện Tấn công Từ điển & Chiếm quyền Điều khiển (Dictionary Attack & Exploitation)**
      - **Thao tác thực hiện:**
        - Chuẩn bị file từ điển `passwords.txt` chứa danh sách mật khẩu mẫu phổ biến (`123456`, `password`, `admin`, `admin123`, `root`, `qwerty`...).
-       - Chặn bắt request gửi tới `POST https://chat.taild6d848.ts.net/api/auth/token` và đưa vào tab **Intruder** của Burp Suite:
-         - **Target Host:** `chat.taild6d848.ts.net`, Port: `443`, Sử dụng HTTPS/TLS.
-         - **Request Header:** Bổ sung `X-Real-IP: testclient` (để vượt qua cơ chế giới hạn IP qua proxy Tailscale Funnel) và **xóa bỏ dòng `Content-Length`** để Burp Suite tự động tính độ dài body theo từng payload.
-         - **Request Body:** `username=admin&password=§password§` (đặt biến payload tại vị trí mật khẩu).
-         - **Payloads:** Nạp danh sách từ file `passwords.txt`.
+       - Chặn bắt request gửi tới `POST https://chat-ts.taild6d848.ts.net/api/auth/token` và đưa vào tab **Intruder** của Burp Suite:
+         - **Target Host:** `chat-ts.taild6d848.ts.net`, Port: `443`, Sử dụng HTTPS/TLS (HTTP/2).
+         - **Request Header:** Không cần thêm bất kỳ header bypass nào (do nhánh `main` đã tắt hoàn toàn rate limit). **LƯU Ý QUAN TRỌNG:** Cần **xóa bỏ dòng header `Content-Length: ...`** để Burp Suite tự động tính toán độ dài body theo từng payload mật khẩu.
+         - **Request Body:** `username=admin&password=§123456§` (đặt ký tự `§` quanh mật khẩu để làm biến payload).
+         - **Payloads:** Nạp danh sách mật khẩu thử nghiệm (`123456`, `password`, `111111`, `qwerty`, `admin`, `12345678`, `admin123`, `secret`, `superadmin`).
        - Bấm **Start Attack** để công cụ tự động gửi loạt request thử nghiệm.
      - **Dữ liệu thực tế nhận được trên Bảng kết quả (Intruder Results):**
        - Các mật khẩu sai (`123456`, `password`, `admin`): Trả về **HTTP 401** với chiều dài gói tin ngắn (~48 bytes).
