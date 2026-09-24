@@ -77,20 +77,35 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 @app.middleware("http")
-async def strip_server_header(request: Request, call_next):
+async def security_headers_middleware(request: Request, call_next):
     response = await call_next(request)
     if "Server" in response.headers:
         del response.headers["Server"]
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 
 
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "*")
-if allowed_origins_str == "*":
-    allow_origin_regex = r".*"
-    allowed_origins = []
-else:
+DEFAULT_ALLOWED_ORIGINS = [
+    "https://chat.taild6d848.ts.net",
+    "https://chat-ts.taild6d848.ts.net",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173"
+]
+
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS")
+if allowed_origins_env and allowed_origins_env != "*":
+    allowed_origins = [origin.strip() for origin in allowed_origins_env.split(",")]
     allow_origin_regex = None
-    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+elif allowed_origins_env == "*":
+    allowed_origins = ["*"]
+    allow_origin_regex = None
+else:
+    allowed_origins = DEFAULT_ALLOWED_ORIGINS
+    allow_origin_regex = r"^https://.*\.ts\.net$"
 
 app.add_middleware(
     CORSMiddleware,
@@ -103,6 +118,7 @@ app.add_middleware(
 
 # Mount static files for uploads
 from fastapi.staticfiles import StaticFiles
+os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Route registration (/api and /api/v1 for backward compatibility and standards)
