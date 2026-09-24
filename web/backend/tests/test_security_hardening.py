@@ -215,3 +215,34 @@ def test_login_success_resets_failed_counter():
     db.commit()
     db.close()
     reset_rate_limits()
+
+def test_users_endpoint_requires_auth_preventing_idor():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    test_client = TestClient(app)
+    # Anonymous request to /users/1 must be rejected with 401 Unauthorized
+    resp = test_client.get("/api/v1/users/1")
+    assert resp.status_code == 401, f"Expected 401 Unauthorized for anonymous IDOR probe, got {resp.status_code}"
+
+def test_guestbook_does_not_leak_user_token_in_public_feed():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    test_client = TestClient(app)
+    # Post a message with a private token
+    post_res = test_client.post("/api/v1/guestbook", json={
+        "author_name": "TokenLeakTester",
+        "content": "Checking token exposure",
+        "avatar_color": "#2563EB",
+        "user_token": "secret_private_token_xyz_12345"
+    })
+    assert post_res.status_code == 201
+
+    # Public GET /guestbook must NEVER expose user_token in listing
+    get_res = test_client.get("/api/v1/guestbook")
+    assert get_res.status_code == 200
+    messages = get_res.json()
+    assert len(messages) > 0
+    for msg in messages:
+        assert msg.get("user_token") is None, f"user_token leaked in public response: {msg.get('user_token')}"

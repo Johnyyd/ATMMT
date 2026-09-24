@@ -25,9 +25,14 @@ def get_user_profile(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/{user_id}", response_model=UserResponse)
-def get_user(user_id: int, db: Session = Depends(get_db)):
+def get_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Get public profile information for any user.
+    Get profile information for a user.
+    Requires authentication to prevent unauthenticated IDOR reconnaissance.
     """
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
