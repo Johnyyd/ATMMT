@@ -142,5 +142,6 @@ def test_like_endpoint_rate_limited():
 
     assert 200 in responses
     assert 429 in responses, f"Expected 429 Too Many Requests on like spamming, got {responses}"
+    reset_rate_limits()
 
 
