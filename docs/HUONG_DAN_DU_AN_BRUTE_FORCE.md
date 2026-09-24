@@ -28,14 +28,15 @@
 
 | Dịch vụ / Chức năng | URL Tên miền Thật | Mô tả kỹ thuật |
 | :--- | :--- | :--- |
-| **Giao diện Web (Frontend)** | `https://chat.taild6d848.ts.net/` | Giao diện React Portfolio & Guestbook |
-| **Tài liệu API (Swagger UI)** | `https://chat.taild6d848.ts.net/docs` | Danh mục toàn bộ API endpoints hệ thống |
+| **Giao diện Web (Frontend)** | `https://chat.taild6d848.ts.net/` | Giao diện React Portfolio & Guestbook (cổng 8080) |
+| **Công cụ Dò Subdomain (CT Logs)** | `https://www.certkit.io/tools/ct-logs/` | Công cụ tra cứu Certificate Transparency Logs tìm subdomain backend |
+| **Backend Trực tiếp (FastAPI)** | `https://chat-ts.taild6d848.ts.net/` | Dịch vụ Backend độc lập cổng 7000 (phát hiện qua CT Logs) |
+| **Tài liệu API (Swagger UI)** | `https://chat-ts.taild6d848.ts.net/docs` | Danh mục toàn bộ API endpoints hệ thống (trên subdomain backend `chat-ts`) |
 | **API Do thám Guestbook** | `https://chat.taild6d848.ts.net/api/guestbook` | Endpoint lộ danh sách tài khoản & Admin |
 | **API Do thám Profile IDOR** | `https://chat.taild6d848.ts.net/api/users/1` | Dò quét tài khoản theo User ID |
-| **API Mục tiêu Brute Force** | `https://chat.taild6d848.ts.net/api/auth/token` | Endpoint xác thực nhận form-urlencoded |
-| **Backend Trực tiếp (Proxy phụ)**| `https://chat-ts.taild6d848.ts.net/` | Endpoint backend độc lập cổng 7000 |
+| **API Mục tiêu Brute Force** | `https://chat-ts.taild6d848.ts.net/api/auth/token` | Endpoint xác thực nhận form-urlencoded |
 
-*Tất cả các bước do thám và tấn công đều được tiến hành từ xa qua mạng Internet nhắm vào tên miền `https://chat.taild6d848.ts.net`.*
+> ⚠️ **Lưu ý quan trọng:** Đường dẫn `https://chat.taild6d848.ts.net/docs` hoàn toàn **không tồn tại (404 Not Found)** do Nginx Frontend chỉ phục vụ giao diện và reverse-proxy `/api`, không chuyển tiếp `/docs`. Do đó, phương án chuẩn xác nhất là Attacker sử dụng công cụ tra cứu Certificate Transparency Logs (CT Logs) tại `https://www.certkit.io/tools/ct-logs/` để dò quét subdomain backend (`chat-ts.taild6d848.ts.net`), từ đó mở tài liệu Swagger UI tại `https://chat-ts.taild6d848.ts.net/docs`.
 
 ### 1.2. Chuỗi Tấn công Mô phỏng (Attack Kill Chain)
 Một cuộc tấn công Brute Force trong thực tế không bao giờ bắt đầu bằng việc "đoán mò ngẫu nhiên", mà luôn trải qua chuỗi 3 giai đoạn:
@@ -43,21 +44,22 @@ Một cuộc tấn công Brute Force trong thực tế không bao giờ bắt đ
 ```mermaid
 flowchart TD
     subgraph GĐ1 [GIAI ĐOẠN 1: DO THÁM & THU THẬP THÔNG TIN]
-        A[Quét tài liệu API /docs] --> B[Khai thác GET /api/guestbook]
-        B --> C[Dò quét IDOR GET /api/users/1]
-        C --> D[Xác định mục tiêu: Username = 'admin', Role = 'admin']
+        A[Do thám giao diện Web chat.taild6d848.ts.net] --> B[Khai thác GET /api/guestbook lộ admin]
+        B --> C[Tra cứu CT Logs tại certkit.io tìm subdomain]
+        C --> D[Phát hiện backend chat-ts.taild6d848.ts.net]
+        D --> E[Truy cập chat-ts.taild6d848.ts.net/docs lộ Swagger]
     end
 
     subgraph GĐ2 [GIAI ĐOẠN 2: TÌM ĐIỂM YẾU HỆ THỐNG]
-        D --> E[Phát hiện endpoint không mã hóa POST /api/auth/token]
-        E --> F[Phát hiện Header giả mạo X-Forwarded-For bypass Rate Limit]
-        F --> G[Nhận diện hệ thống KHÔNG có Account Lockout]
+        E --> F[Phát hiện endpoint không mã hóa POST /api/auth/token]
+        F --> G[Phát hiện Header giả mạo X-Forwarded-For bypass Rate Limit]
+        G --> H[Nhận diện hệ thống KHÔNG có Account Lockout]
     end
 
     subgraph GĐ3 [GIAI ĐOẠN 3: TẤN CÔNG TỪ ĐIỂN BRUTE FORCE]
-        G --> H[Nạp Wordlist chứa admin123 vào Burp Suite / Hydra]
-        H --> I[Gửi loạt request thử mật khẩu]
-        I --> J[Bắt thành công mã HTTP 200 OK & Token JWT]
+        H --> I[Nạp Wordlist chứa admin123 vào Burp Suite / Hydra]
+        I --> J[Gửi loạt request thử mật khẩu]
+        J --> K[Bắt thành công mã HTTP 200 OK & Token JWT]
     end
 ```
 
@@ -97,12 +99,14 @@ Trong giai đoạn này, kẻ tấn công tìm cách xác định xem hệ thố
   - Dữ liệu trả về theo schema `UserResponse` chứa đầy đủ `id`, `username`, `role`.
 - **Ý nghĩa đối với kẻ tấn công:** Cho phép thu thập 100% danh sách tài khoản hiện có trong hệ thống (User Enumeration). Tài khoản `id=1` gần như luôn là tài khoản quản trị hệ thống.
 
-### Lỗ hổng 2.3: Lộ tài liệu API Swagger công khai (`/docs` & `/api/openapi.json`)
+### Lỗ hổng 2.3: Lộ tài liệu API Swagger công khai trên Subdomain Backend (`https://chat-ts.taild6d848.ts.net/docs`)
 - **Tập tin liên quan:** `web/backend/app/main.py` (Dòng 64)
 - **Bản chất kỹ thuật:**
-  - Hệ thống để mở `openapi_url=f"{settings.API_PREFIX}/openapi.json"` mà không tắt trong môi trường production.
-  - Khi truy cập `https://chat.taild6d848.ts.net/docs` (hoặc `https://chat-ts.taild6d848.ts.net/docs`), toàn bộ sơ đồ API, định dạng dữ liệu (JSON, Form URL Encoded), các endpoint nhạy cảm đều hiển thị trực quan.
-- **Ý nghĩa đối với kẻ tấn công:** Giúp kẻ tấn công hiểu rõ mọi tham số đầu vào mà không cần đọc mã nguồn hay dịch ngược file JavaScript.
+  - Trên Frontend (`chat.taild6d848.ts.net`), đường dẫn `/docs` không tồn tại (**404 Not Found**) do Nginx chỉ phục vụ giao diện và reverse-proxy `/api`.
+  - Tuy nhiên, backend FastAPI lại được public độc lập ra Internet qua container Tailscale Funnel thứ hai với subdomain `chat-ts.taild6d848.ts.net`.
+  - Bằng cách tra cứu **Certificate Transparency Logs (CT Logs)** trên công cụ như **[CertKit CT Logs](https://www.certkit.io/tools/ct-logs/)** cho domain gốc `taild6d848.ts.net`, kẻ tấn công dễ dàng phát hiện ra subdomain backend `chat-ts.taild6d848.ts.net` do Let's Encrypt công khai chứng chỉ SSL cấp phát.
+  - Khi truy cập `https://chat-ts.taild6d848.ts.net/docs`, backend chưa tắt `ENABLE_SWAGGER` trong môi trường triển khai thực tế, làm lộ toàn bộ sơ đồ API, định dạng dữ liệu (JSON, Form URL Encoded), và các endpoint nhạy cảm (đặc biệt là `POST /api/auth/token`).
+- **Ý nghĩa đối với kẻ tấn công:** Giúp kẻ tấn công hiểu rõ tham số đầu vào của endpoint xác thực `POST /api/auth/token` nhận mật khẩu dạng thô (Plaintext) mà không cần đọc mã nguồn hay giải mã RSA trên giao diện web.
 
 ### Lỗ hổng 2.4: Tiết lộ sự tồn tại của tài khoản qua API Đăng ký (`POST /api/auth/register`)
 - **Tập tin liên quan:** `web/backend/app/routers/auth.py` (Dòng 28 - 34)
@@ -198,16 +202,30 @@ Nhóm Kỹ thuật và Video gồm 3 thành viên sẽ tiến hành thực nghi�
        - Hệ thống có phân quyền vai trò người dùng (`author_role`).
        - Tin nhắn số 1 thuộc về tài khoản quản trị cao nhất với tên đăng nhập xác thực là: `admin` (User ID: 1).
      - **Quyết định tiếp theo:** Không cần tốn thời gian đoán mò username ngẫu nhiên; toàn bộ mục tiêu tấn công được thu hẹp vào duy nhất tài khoản `admin`.
-     - *Ghi nhận bằng chứng:* Người 1 và Người 3 chụp ảnh/quay video màn hình hiển thị JSON trả về có `author_name: "admin"` và `author_role: "admin"`.
+     - *Ghi nhận bằng chứng:* Người 1 và Người 3 chụp ảnh/quay video màn hình hiển thị JSON trả về có `author_name: "admin"` và `author_role: "admin"` (xem minh chứng: `assets/images/fetch-api.png`):
+       
+       ![Do thám API Guestbook lộ Admin](../assets/images/fetch-api.png)
 
-  2. **Bước 2: Tìm kiếm "Cửa vào" Xác thực thích hợp (Endpoint Hunting)**
-     - **Thao tác thực hiện:** Kiểm tra form đăng nhập trên giao diện web thấy gửi tới `/api/auth/login` với dữ liệu mã hóa phức tạp (RSA + AES). Attacker chuyển sang rà quét các đường dẫn tài liệu API mặc định của framework: truy cập `https://chat.taild6d848.ts.net/docs`.
-     - **Dữ liệu thực tế nhận được:** Trang Swagger UI mở công khai, hiển thị chi tiết toàn bộ API của hệ thống, bao gồm endpoint: `POST /api/auth/token`.
+  2. **Bước 2: Dò tìm Subdomain Backend qua CT Logs & Khám phá Tài liệu API (Subdomain Reconnaissance & Swagger Hunting)**
+     - **Thực tế gặp phải:** Kiểm tra form đăng nhập trên web thấy gửi tới `/api/auth/login` với dữ liệu mã hóa phức tạp (RSA + AES). Attacker thử truy cập đường dẫn tài liệu API mặc định `https://chat.taild6d848.ts.net/docs` nhưng nhận thông báo **404 Not Found** (do Nginx Frontend chỉ phục vụ giao diện và reverse-proxy `/api`, không chuyển tiếp `/docs`).
+     - **Kỹ thuật điều tra chuẩn xác (OSINT Certificate Transparency Logs):**
+       - Attacker sử dụng công cụ tra cứu nhật ký chứng chỉ SSL/TLS công khai tại **[https://www.certkit.io/tools/ct-logs/](https://www.certkit.io/tools/ct-logs/)**.
+       - Nhập tên miền mạng: `taild6d848.ts.net`.
+       - Do Tailscale Funnel tự động yêu cầu cấp chứng chỉ Let's Encrypt cho mỗi service public, mọi subdomain đều được ghi nhận công khai trên CT Logs.
+       - Kết quả tra cứu CertKit phát hiện 2 subdomain đang hoạt động:
+         1. `chat.taild6d848.ts.net` (Giao diện Frontend)
+         2. `chat-ts.taild6d848.ts.net` (Dịch vụ Backend trực tiếp!)
+     - **Truy cập Backend:** Attacker truy cập đường dẫn `https://chat-ts.taild6d848.ts.net/docs`.
+     - **Dữ liệu thực tế nhận được:** Giao diện Swagger UI của FastAPI hiển thị đầy đủ, để lộ mục `auth` với endpoint: `POST /api/auth/token` (Login For Access Token).
      - **Suy luận của Attacker:** 
        - Endpoint `/api/auth/token` nhận định dạng chuẩn `application/x-www-form-urlencoded` gồm 2 tham số: `username` và `password` dạng chữ thuần (Plaintext).
-       - Không cần viết code giải mã RSA/AES ở giao diện web, có thể gửi trực tiếp username và password vào endpoint này.
-     - **Quyết định tiếp theo:** Chọn `POST /api/auth/token` làm "cửa ngõ" chính xác để nạp vào công cụ bẻ khóa tự động.
-     - *Ghi nhận bằng chứng:* Chụp ảnh tài liệu Swagger `/docs` hiển thị endpoint `POST /api/auth/token`.
+       - Hoàn toàn vượt qua cơ chế mã hóa RSA/AES của giao diện web mà không cần giải mã client-side.
+     - **Quyết định tiếp theo:** Chọn `POST /api/auth/token` làm "cửa ngõ" chính xác để nạp vào công cụ bẻ khóa tự động Burp Suite.
+     - *Ghi nhận bằng chứng:* 
+       - Ảnh chụp màn hình tra cứu CT Logs trên CertKit phát hiện subdomain backend (`assets/images/crawl-subdomain.png`):
+         ![Tra cứu CT Logs trên CertKit](../assets/images/crawl-subdomain.png)
+       - Ảnh chụp màn hình Swagger UI trên subdomain backend `chat-ts.taild6d848.ts.net/docs` (`assets/images/found-url-backend.png`):
+         ![Tài liệu Swagger UI trên Subdomain Backend](../assets/images/found-url-backend.png)
 
   3. **Bước 3: Thăm dò "Hệ thống Báo động" & Cơ chế Khóa (Defense Probing)**
      - **Thao tác thực hiện:** Gửi thử các request đăng nhập sai có chủ đích vào `POST https://chat.taild6d848.ts.net/api/auth/token` với `username=admin` và mật khẩu ngẫu nhiên (`111111`, `222222`...) liên tiếp từ 5 đến 10 lần.
@@ -280,7 +298,7 @@ Các thành viên viết báo cáo sử dụng các phát hiện kỹ thuật tr
 - **Mục 3.2 (Chuẩn bị Wordlist):** Liệt kê bảng mật khẩu mẫu trong file từ điển `passwords.txt`.
 - **Mục 3.3 (Các bước tiến hành tấn công theo góc nhìn Attacker):**
   - *Bước 1 (Do thám & Xác định mục tiêu):* Phân tích phản hồi `GET /api/guestbook` nhận diện `author_name: "admin"` và `author_role: "admin"`.
-  - *Bước 2 (Tìm cửa ngõ xác thực):* Khám phá tài liệu Swagger `/docs`, chọn endpoint `POST /api/auth/token` nhận dữ liệu form thuần thay vì `/api/auth/login` bị mã hóa.
+  - *Bước 2 (Dò tìm subdomain backend & Khám phá Swagger UI):* Khắc phục việc `chat.taild6d848.ts.net/docs` bị lỗi 404 bằng cách sử dụng công cụ tra cứu Certificate Transparency Logs (CT Logs) tại https://www.certkit.io/tools/ct-logs/ tìm ra subdomain backend `chat-ts.taild6d848.ts.net`. Mở `https://chat-ts.taild6d848.ts.net/docs` hiển thị Swagger UI, phát hiện endpoint `POST /api/auth/token` nhận dữ liệu form thuần thay vì `/api/auth/login` bị mã hóa.
   - *Bước 3 (Thăm dò cơ chế bảo vệ):* Thử nghiệm gửi 5-10 request sai mật khẩu liên tiếp để chứng minh hệ thống không có Account Lockout và không chặn IP.
   - *Bước 4 (Tiến hành tấn công từ điển):* Cấu hình Burp Suite Intruder nhắm vào tên miền thật `chat.taild6d848.ts.net` (Port 443 HTTPS), chèn header bypass `X-Forwarded-For: testclient`, nạp wordlist `passwords.txt`.
 - **Mục 3.4 (Kết quả thực nghiệm Kịch bản 1):** 

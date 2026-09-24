@@ -103,12 +103,12 @@ flowchart TD
   - Người 4 hoàn thành bản nháp Mở đầu và Chương 1 (Lý thuyết xác thực, Brute Force vs Dictionary Attack, công cụ Burp Suite/Hydra).
   - Người 5 hoàn thành bản nháp Chương 2 (Chính sách mật khẩu NIST, cơ chế Account Lockout, Rate Limiting).
 - **Tiêu chí nghiệm thu (Checklist M1):**
-  - [ ] Web và Swagger UI truy cập được qua Internet bằng domain Tailscale.
+  - [ ] Web Frontend (`chat...`) và Backend Swagger UI (`chat-ts.../docs`) truy cập được qua Internet bằng domain Tailscale Funnel.
   - [ ] Có `docs/drafts/Chuong1.docx` và `docs/drafts/Chuong2.docx`.
 
 #### 🚩 Milestone 2: Thực Nghiệm Tấn Công & Phòng Thủ (Ngày 4 - Ngày 7)
 - **Nhiệm vụ:**
-  - Người 1 thực hiện Kịch bản 1: Do thám API Guestbook $\rightarrow$ Swagger `/docs` $\rightarrow$ Chạy từ điển trên Burp Suite Intruder $\rightarrow$ Bắt mã HTTP 200 OK tại mật khẩu `admin123`.
+  - Người 1 thực hiện Kịch bản 1: Do thám API Guestbook $\rightarrow$ Tra cứu CT Logs tại certkit.io tìm subdomain backend `chat-ts` $\rightarrow$ Khám phá Swagger `/docs` $\rightarrow$ Chạy từ điển trên Burp Suite Intruder $\rightarrow$ Bắt mã HTTP 200 OK tại mật khẩu `admin123`.
   - Người 2 thực hiện Kịch bản 2: Vá code Account Lockout $\rightarrow$ Chạy lại công cụ $\rightarrow$ Bị chặn đứng với mã HTTP 403 Forbidden sau 5 lần sai.
   - Người 3 quay toàn bộ màn hình thao tác của Người 1 và Người 2, lưu trữ video thô (raw footage).
 - **Tiêu chí nghiệm thu (Checklist M2):**

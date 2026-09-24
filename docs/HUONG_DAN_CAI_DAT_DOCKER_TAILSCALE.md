@@ -200,8 +200,8 @@ https://chat.<tên-mạng-của-bạn>.ts.net (Funnel on)
 ```
 
 Bây giờ bạn có thể mở trình duyệt trên điện thoại hoặc máy tính khác (ở bất kỳ đâu ngoài Internet) và truy cập vào URL:
-- Trang web chính thức: `https://chat.<tên-mạng-của-bạn>.ts.net/`
-- Tài liệu API: `https://chat.<tên-mạng-của-bạn>.ts.net/docs`
+- Trang web chính thức (Frontend): `https://chat.<tên-mạng-của-bạn>.ts.net/`
+- Backend API & Tài liệu Swagger UI: `https://chat-ts.<tên-mạng-của-bạn>.ts.net/docs`
 
 Hệ thống đã sẵn sàng 100% để các thành viên trong nhóm tiến hành quay video demo hoặc thực nghiệm kịch bản tấn công và phòng thủ!
 
