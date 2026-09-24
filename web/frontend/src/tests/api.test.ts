@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchTopics, postGuestbookMessage, sendAIChatMessage } from '../services/api';
+import { fetchTopics, postGuestbookMessage } from '../services/api';
 
 describe('Frontend API Service', () => {
   beforeEach(() => {
@@ -18,7 +18,7 @@ describe('Frontend API Service', () => {
 
     const topics = await fetchTopics();
     expect(topics).toEqual(mockTopics);
-    expect(fetch).toHaveBeenCalledWith('/api/topics');
+    expect(fetch).toHaveBeenCalledWith('/api/topics', expect.objectContaining({ credentials: 'include' }));
   });
 
   it('postGuestbookMessage sends POST request with correct payload including user_token', async () => {
@@ -41,29 +41,6 @@ describe('Frontend API Service', () => {
     expect(fetch).toHaveBeenCalledWith('/api/guestbook', expect.objectContaining({
       method: 'POST',
       body: expect.stringContaining('"author_name":"Khách Hàng A"'),
-    }));
-  });
-
-  it('sendAIChatMessage calls /api/chat endpoint correctly and parses suggested_questions', async () => {
-    const mockData = {
-      reply: 'Chào bạn!',
-      provider_used: 'openrouter',
-      model_used: 'nvidia/nemotron-3-ultra-550b-a55b:free',
-      suggested_questions: ['Hỏi về Docker?', 'Hỏi về React?'],
-    };
-
-    global.fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ success: true, data: mockData }),
-    });
-
-    const result = await sendAIChatMessage('Kỹ năng chính?', [], 'auto', 'about');
-    expect(result.reply).toBe('Chào bạn!');
-    expect(result.provider_used).toBe('openrouter');
-    expect(result.suggested_questions).toEqual(['Hỏi về Docker?', 'Hỏi về React?']);
-    expect(fetch).toHaveBeenCalledWith('/api/chat', expect.objectContaining({
-      method: 'POST',
-      body: JSON.stringify({ message: 'Kỹ năng chính?', history: [], provider: 'auto', topic_id: 'about' }),
     }));
   });
 });

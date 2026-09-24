@@ -6,7 +6,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: chat_portfolio_frontend
+    container_name: chat_frontend
     restart: always
     cap_drop:
       - ALL
@@ -20,7 +20,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: chat_portfolio_backend
+    container_name: chat_backend
     restart: always
     cap_drop:
       - ALL
@@ -29,10 +29,6 @@ services:
     environment:
       - DATABASE_URL=sqlite:////app/data/guestbook.db
       - JWT_SECRET_KEY=b67c8585489f66710b42c4b8e21a287c954e7d4a96b4b5c8
-      - OPENROUTER_API_KEY=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
-      - OPENROUTER_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
-      - GROQ_API_KEY=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
-      - GROQ_MODEL=openai/gpt-oss-120b
     volumes:
       - backend_db_data:/app/data
       - backend_uploads:/app/uploads
@@ -42,11 +38,11 @@ services:
     build:
       context: ./tailscale
       dockerfile: Dockerfile.tailscale
-    container_name: chat-portfolio
-    hostname: chat-portfolio
+    container_name: chat
+    hostname: chat
     restart: always
     environment:
-      - TS_AUTHKEY=tskey-auth-kHayJBjr9j11CNTRL-dfkHN8fxFdEnyYFPPQR3dEQ6gD3pKJxL
+      - TS_AUTHKEY=tskey-auth-kMvFmVxPpg11CNTRL-dWkCF7p8tLFLXHhgSqzsKFc5bp7aHEYf
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_TARGET_HOST=frontend
       - TS_TARGET_PORT=8080
@@ -61,11 +57,11 @@ services:
     build:
       context: ./tailscale
       dockerfile: Dockerfile.tailscale
-    container_name: chat-portfolio-backend
-    hostname: chat-portfolio-backend
+    container_name: chat_ts
+    hostname: chat-ts
     restart: always
     environment:
-      - TS_AUTHKEY=tskey-auth-kHayJBjr9j11CNTRL-dfkHN8fxFdEnyYFPPQR3dEQ6gD3pKJxL
+      - TS_AUTHKEY=tskey-auth-kMvFmVxPpg11CNTRL-dWkCF7p8tLFLXHhgSqzsKFc5bp7aHEYf
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_TARGET_HOST=backend
       - TS_TARGET_PORT=7000

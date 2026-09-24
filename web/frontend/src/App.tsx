@@ -4,7 +4,7 @@ import { ChatWindow } from './components/ChatWindow';
 import { AuthModal } from './components/AuthModal';
 import { EditMessageModal } from './components/EditMessageModal';
 import ProfilePage from './components/ProfilePage';
-import { ChatTopic, ChatMessage, AIChatHistoryItem } from './types/chat';
+import { ChatTopic, ChatMessage } from './types/chat';
 import { User } from './types/auth';
 import { authService } from './services/authService';
 import {
@@ -13,17 +13,10 @@ import {
   fetchGuestbookMessages,
   postGuestbookMessage,
   likeGuestbookMessage,
-  sendAIChatMessage,
   getOrCreateUserToken,
   fetchOnlineCount,
 } from './services/api';
 import { guestbookWS } from './services/websocket';
-
-const STARTER_SUGGESTIONS: Record<string, string[]> = {
-  about: ['💡 Kỹ năng chính là gì?', '📫 Cách liên hệ Johnyyd?'],
-  repos: ['🛡️ Dự án Tailscale Public URL?', '⭐ GitHub Repo trang này?'],
-  'ai-assistant': ['💡 Kỹ năng chuyên môn?', '🛡️ Kinh nghiệm DevOps & Tailscale?'],
-};
 
 export const App: React.FC = () => {
   const [topics, setTopics] = useState<ChatTopic[]>([]);
@@ -33,16 +26,12 @@ export const App: React.FC = () => {
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
   const [isSendingGuestbook, setIsSendingGuestbook] = useState<boolean>(false);
-  const [isSendingAI, setIsSendingAI] = useState<boolean>(false);
   const [onlineCount, setOnlineCount] = useState<number>(guestbookWS.lastOnlineCount || 1);
   const [typingUsers, setTypingUsers] = useState<Record<string, number>>({});
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('portfolio_theme');
     return saved === 'light' ? 'light' : 'dark';
   });
-  const [currentSuggestions, setCurrentSuggestions] = useState<string[]>(
-    STARTER_SUGGESTIONS['about']
-  );
 
   // View State
   const [viewMode, setViewMode] = useState<'chat' | 'profile'>('chat');
@@ -68,9 +57,6 @@ export const App: React.FC = () => {
     checkAuth();
   }, []);
 
-  useEffect(() => {
-    setCurrentSuggestions(STARTER_SUGGESTIONS[activeTopicId] || []);
-  }, [activeTopicId]);
 
   const handleToggleTheme = () => {
     setTheme((prev) => {
@@ -447,83 +433,6 @@ export const App: React.FC = () => {
     }
   };
 
-  // Handle AI Assistant Message Submit
-  const handleSendAIMessage = async (query: string, provider: 'auto' | 'openrouter' | 'groq' = 'auto') => {
-    const currentTopicId = activeTopicId;
-    const userMsg: ChatMessage = {
-      id: `user-${Date.now()}`,
-      sender: 'Bạn',
-      is_author: true,
-      avatar: '',
-      avatar_color: '#3B82F6',
-      content: query,
-      timestamp: 'Vừa xong',
-      type: 'text',
-    };
-
-    setTopicMessagesMap((prev) => ({
-      ...prev,
-      [currentTopicId]: [...(prev[currentTopicId] || []), userMsg],
-    }));
-    setMessages((prev) => [...prev, userMsg]);
-    setIsSendingAI(true);
-    setIsTyping(true);
-
-    try {
-      const activeMsgs = topicMessagesMap[currentTopicId] || messages;
-      const historyItems: AIChatHistoryItem[] = activeMsgs
-        .filter((m) => m.type === 'text' || m.type === 'ai')
-        .map((m) => ({
-          role: m.is_author ? 'user' : 'assistant',
-          content: m.content,
-        }));
-
-      const response = await sendAIChatMessage(query, historyItems, provider, currentTopicId);
-      if (response.suggested_questions && response.suggested_questions.length > 0) {
-        setCurrentSuggestions(response.suggested_questions);
-      }
-
-      const botReply: ChatMessage = {
-        id: `ai-${Date.now()}`,
-        sender: 'Johnyyd AI',
-        is_author: false,
-        avatar: '🤖',
-        content: response.reply,
-        timestamp: 'Vừa xong',
-        type: 'ai',
-      };
-
-      setTopicMessagesMap((prev) => ({
-        ...prev,
-        [currentTopicId]: [...(prev[currentTopicId] || []), botReply],
-      }));
-      setMessages((prev) => [...prev, botReply]);
-    } catch (err) {
-      console.error('AI chat failed:', err);
-      const errorReply: ChatMessage = {
-        id: `ai-err-${Date.now()}`,
-        sender: 'Johnyyd AI',
-        is_author: false,
-        avatar: '🤖',
-        content: '⚠️ Không thể kết nối tới dịch vụ AI. Bạn vui lòng thử lại sau giây lát!',
-        timestamp: 'Vừa xong',
-        type: 'ai',
-      };
-      setTopicMessagesMap((prev) => ({
-        ...prev,
-        [currentTopicId]: [...(prev[currentTopicId] || []), errorReply],
-      }));
-      setMessages((prev) => [...prev, errorReply]);
-    } finally {
-      setIsSendingAI(false);
-      setIsTyping(false);
-    }
-  };
-
-  const handleSelectQuickAction = (actionText: string) => {
-    handleSendAIMessage(actionText, 'auto');
-  };
-
   const handleLogout = () => {
     authService.logout();
     setCurrentUser(null);
@@ -568,12 +477,8 @@ export const App: React.FC = () => {
           onEditGuestbookMessage={handleEditGuestbookMessage}
           onDeleteGuestbookMessage={handleDeleteGuestbookMessage}
           isSendingGuestbook={isSendingGuestbook}
-          onSelectQuickAction={handleSelectQuickAction}
-          onSendAIMessage={handleSendAIMessage}
-          isSendingAI={isSendingAI}
           theme={theme}
           onToggleTheme={handleToggleTheme}
-          suggestions={currentSuggestions}
           currentUser={currentUser}
           onViewProfile={handleViewProfile}
         />

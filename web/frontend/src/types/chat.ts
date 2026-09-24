@@ -60,26 +60,3 @@ export interface GuestbookEntry {
   expires_at?: string | null;
   author_role?: 'admin' | 'user' | 'anonymous';
 }
-
-export interface AIChatHistoryItem {
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-}
-
-export interface AIChatRequest {
-  message: string;
-  history?: AIChatHistoryItem[];
-  provider?: 'auto' | 'openrouter' | 'groq';
-  topic_id?: string;
-}
-
-export interface AIChatResponse {
-  success: boolean;
-  data: {
-    reply: string;
-    provider_used: string;
-    model_used: string;
-    suggested_questions?: string[];
-    error?: string;
-  };
-}

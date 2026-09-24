@@ -5,8 +5,6 @@ import { User } from '../types/auth';
 import { MessageBubble } from './MessageBubble';
 import { TypingIndicator } from './TypingIndicator';
 import { GuestbookInput } from './GuestbookInput';
-import { AIChatInput } from './AIChatInput';
-import { SuggestionChips } from './SuggestionChips';
 import { ImagePopup } from './ImagePopup';
 
 interface ChatWindowProps {
@@ -19,14 +17,8 @@ interface ChatWindowProps {
   onEditGuestbookMessage?: (msg: ChatMessage) => void;
   onDeleteGuestbookMessage?: (id: number) => void;
   isSendingGuestbook: boolean;
-  onSelectQuickAction?: (actionText: string) => void;
-  onSendAIMessage?: (message: string, provider?: 'auto' | 'openrouter' | 'groq') => Promise<void>;
-  isSendingAI?: boolean;
-  selectedAIProvider?: 'auto' | 'openrouter' | 'groq';
-  onSelectAIProvider?: (provider: 'auto' | 'openrouter' | 'groq') => void;
   theme?: 'dark' | 'light';
   onToggleTheme?: () => void;
-  suggestions?: string[];
   typingUsers?: string[];
   currentUser?: User | null;
   onViewProfile?: (userId: number | null) => void;
@@ -42,12 +34,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onEditGuestbookMessage,
   onDeleteGuestbookMessage,
   isSendingGuestbook,
-  onSelectQuickAction,
-  onSendAIMessage,
-  isSendingAI = false,
   theme = 'dark',
   onToggleTheme,
-  suggestions = [],
   currentUser,
   typingUsers = [],
   onViewProfile,
@@ -116,7 +104,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
                 </span>
                 <span className="text-emerald-400 light:text-emerald-700 font-mono text-[10px]">
-                  {isGuestbook ? 'Kênh lưu bút cộng đồng' : 'Trợ lý Johnyyd AI online'}
+                  {isGuestbook ? 'Kênh lưu bút cộng đồng' : 'Chủ đề thông tin'}
                 </span>
               </div>
             </div>
@@ -140,7 +128,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
           <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-zinc-900/90 light:bg-slate-100 border border-zinc-800 light:border-slate-200 text-[11px] text-zinc-300 light:text-slate-700 font-mono shadow-inner">
             <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 light:bg-indigo-600" />
-            {isGuestbook ? 'Realtime Guestbook' : 'Portfolio AI'}
+            {isGuestbook ? 'Realtime Guestbook' : 'Portfolio'}
           </span>
         </div>
       </header>
@@ -171,7 +159,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         ))}
 
         {/* Typing indicator */}
-        {isTyping && <TypingIndicator name="AI Assistant" />}
+        {isTyping && <TypingIndicator name="Đang nhập" />}
         {!isTyping && typingUsers.length > 0 && (
           <TypingIndicator name={typingUsers.join(', ')} />
         )}
@@ -179,25 +167,12 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         <div ref={feedEndRef} />
       </main>
 
-      {/* Quick Action Suggestion Chips */}
-      {!isGuestbook && onSelectQuickAction && (
-        <SuggestionChips suggestions={suggestions} onSelectSuggestion={onSelectQuickAction} />
-      )}
-
       {/* Guestbook Input */}
       {isGuestbook && (
         <GuestbookInput
           onSendMessage={onSendGuestbookMessage}
           isSubmitting={isSendingGuestbook}
           currentUser={currentUser}
-        />
-      )}
-
-      {/* AI Chat Input */}
-      {!isGuestbook && onSendAIMessage && (
-        <AIChatInput
-          onSendMessage={onSendAIMessage}
-          isSubmitting={isSendingAI}
         />
       )}
 

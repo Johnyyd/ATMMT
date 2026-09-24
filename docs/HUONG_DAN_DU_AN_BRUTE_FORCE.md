@@ -2,6 +2,7 @@
 
 > **Dành cho:** Tất cả 11 thành viên Nhóm 1 - Đề tài: *Tấn công Brute Force và Chính sách Mật khẩu*  
 > **Phạm vi nghiên cứu:** Hệ thống mã nguồn web nội bộ tại thư mục `/web`  
+> **Môi trường Demo:** Chạy trên **tên miền thật (Public URL)** thông qua mạng riêng ảo **Tailscale Funnel / Serve** (không sử dụng localhost trong demo thực tế).  
 > **Mục đích:** Hướng dẫn kỹ thuật chi tiết giúp Nhóm Kỹ thuật (quay video, demo), Nhóm Nội dung (viết báo cáo 5 chương) và Nhóm Trình bày (slide, thuyết trình) phối hợp đồng bộ và chính xác.
 
 ---
@@ -21,9 +22,20 @@
 ## 1. TỔNG QUAN KIẾN TRÚC HỆ THỐNG WEB & CHUỖI TẤN CÔNG (KILL CHAIN)
 
 ### 1.1. Kiến trúc công nghệ của Web (`/web`)
-- **Frontend (`/web/frontend`):** React 18, TypeScript, Tailwind CSS, Vite. Sử dụng thư viện mã hóa client-side `node-forge` (RSA-OAEP 2048-bit + AES-GCM 256-bit).
+- **Frontend (`/web/frontend`):** React 18, TypeScript, Tailwind CSS, Vite. Sử dụng mã hóa client-side `node-forge` (RSA-OAEP 2048-bit + AES-GCM 256-bit). Đã tinh gọn toàn bộ chức năng AI/LLM để ứng dụng nhẹ, ổn định và tập trung vào bảo mật xác thực Portfolio & Guestbook.
 - **Backend API (`/web/backend`):** Python FastAPI, SQLAlchemy ORM, SQLite (`guestbook.db`), thư viện băm mật khẩu `bcrypt`, xác thực bằng JSON Web Token (`PyJWT`).
-- **Mạng & Triển khai:** Docker Compose kết hợp 2 proxy Tailscale.
+- **Mạng & Triển khai Public URL:** Docker Compose kết hợp 2 container Tailscale Proxy (`chat` và `chat_ts`). Toàn bộ hệ thống được cấp phát **tên miền thật với chứng chỉ SSL/TLS HTTPS** thông qua **Tailscale Funnel**:
+
+| Dịch vụ / Chức năng | URL Tên miền Thật | Mô tả kỹ thuật |
+| :--- | :--- | :--- |
+| **Giao diện Web (Frontend)** | `https://chat.taild6d848.ts.net/` | Giao diện React Portfolio & Guestbook |
+| **Tài liệu API (Swagger UI)** | `https://chat.taild6d848.ts.net/docs` | Danh mục toàn bộ API endpoints hệ thống |
+| **API Do thám Guestbook** | `https://chat.taild6d848.ts.net/api/guestbook` | Endpoint lộ danh sách tài khoản & Admin |
+| **API Do thám Profile IDOR** | `https://chat.taild6d848.ts.net/api/users/1` | Dò quét tài khoản theo User ID |
+| **API Mục tiêu Brute Force** | `https://chat.taild6d848.ts.net/api/auth/token` | Endpoint xác thực nhận form-urlencoded |
+| **Backend Trực tiếp (Proxy phụ)**| `https://chat-ts.taild6d848.ts.net/` | Endpoint backend độc lập cổng 7000 |
+
+*Tất cả các bước do thám và tấn công đều được tiến hành từ xa qua mạng Internet nhắm vào tên miền `https://chat.taild6d848.ts.net`.*
 
 ### 1.2. Chuỗi Tấn công Mô phỏng (Attack Kill Chain)
 Một cuộc tấn công Brute Force trong thực tế không bao giờ bắt đầu bằng việc "đoán mò ngẫu nhiên", mà luôn trải qua chuỗi 3 giai đoạn:
@@ -89,7 +101,7 @@ Trong giai đoạn này, kẻ tấn công tìm cách xác định xem hệ thố
 - **Tập tin liên quan:** `web/backend/app/main.py` (Dòng 64)
 - **Bản chất kỹ thuật:**
   - Hệ thống để mở `openapi_url=f"{settings.API_PREFIX}/openapi.json"` mà không tắt trong môi trường production.
-  - Khi truy cập `http://localhost:7000/docs`, toàn bộ sơ đồ API, định dạng dữ liệu (JSON, Form URL Encoded), các endpoint nhạy cảm đều hiển thị trực quan.
+  - Khi truy cập `https://chat.taild6d848.ts.net/docs` (hoặc `https://chat-ts.taild6d848.ts.net/docs`), toàn bộ sơ đồ API, định dạng dữ liệu (JSON, Form URL Encoded), các endpoint nhạy cảm đều hiển thị trực quan.
 - **Ý nghĩa đối với kẻ tấn công:** Giúp kẻ tấn công hiểu rõ mọi tham số đầu vào mà không cần đọc mã nguồn hay dịch ngược file JavaScript.
 
 ### Lỗ hổng 2.4: Tiết lộ sự tồn tại của tài khoản qua API Đăng ký (`POST /api/auth/register`)
@@ -169,12 +181,13 @@ Nhóm Kỹ thuật và Video gồm 3 thành viên sẽ tiến hành thực nghi�
 - **Mục tiêu:** Chứng minh hệ thống ban đầu bị lộ sơ hở và bị bẻ khóa thành công.
 - **Các bước thực hiện:**
   1. **Bước 1 (Do thám):**
-     - Mở trình duyệt truy cập `http://localhost:7000/api/guestbook` hoặc `http://localhost:7000/docs`.
-     - Chỉ ra dữ liệu JSON trả về có `author_name: "admin"` và `author_role: "admin"`. Người 1 chụp ảnh màn hình bước này (chứng minh tìm thấy username mục tiêu).
+     - Mở trình duyệt truy cập `https://chat.taild6d848.ts.net/api/guestbook` hoặc `https://chat.taild6d848.ts.net/docs` (sử dụng URL công khai được cấp bởi Tailscale Funnel thay vì localhost).
+     - Chỉ ra dữ liệu JSON trả về có `author_name: "admin"` và `author_role: "admin"`. Người 1 chụp ảnh màn hình bước này (chứng minh tìm thấy username mục tiêu qua mạng Internet).
   2. **Bước 2 (Chuẩn bị Wordlist):**
      - Tạo một file từ điển mật khẩu `passwords.txt` chứa khoảng 10 - 20 mật khẩu mẫu (vd: `123456`, `password`, `qwerty`, `admin`, `admin123`, `letmein`).
   3. **Bước 3 (Thực hiện Brute Force qua Burp Suite Intruder):**
-     - Bắt gói tin gửi tới endpoint: `POST /api/auth/token`.
+     - Target Host: `chat.taild6d848.ts.net`, Port `443`, chọn giao thức HTTPS / TLS.
+     - Bắt gói tin gửi tới endpoint: `POST https://chat.taild6d848.ts.net/api/auth/token`.
      - Trong header request, thêm: `X-Forwarded-For: testclient` (để vượt qua Rate Limit).
      - Định dạng body: `username=admin&password=§password§`.
      - Nạp file `passwords.txt` vào Payload và bấm **Start Attack**.
@@ -225,11 +238,11 @@ Các thành viên viết báo cáo sử dụng các phát hiện kỹ thuật tr
 
 ### 5.3. Người 6 phụ trách Chương 3: Triển khai Kịch bản Tấn công
 *(Lấy hình ảnh do Người 1 chụp và Người 3 quay clip)*
-- **Mục 3.1 (Môi trường thử nghiệm):** Mô tả hệ thống nạn nhân chạy trên `localhost:7000`, sử dụng API endpoint `/api/auth/token`.
+- **Mục 3.1 (Môi trường thử nghiệm):** Mô tả hệ thống nạn nhân được triển khai trên máy chủ thật và công khai qua mạng Internet bằng tên miền Tailscale Funnel (`https://chat.taild6d848.ts.net`), không dùng localhost để tăng tính thực tế. Sử dụng API endpoint `/api/auth/token`.
 - **Mục 3.2 (Chuẩn bị Wordlist):** Liệt kê bảng mật khẩu mẫu trong file từ điển `passwords.txt`.
 - **Mục 3.3 (Các bước tiến hành):**
-  - Bước do thám: Tìm username `admin` qua API Guestbook và Swagger `/docs`.
-  - Bước tấn công: Cấu hình Burp Suite Intruder, chèn header bypass `X-Forwarded-For: testclient`.
+  - Bước do thám: Tìm username `admin` qua API Guestbook (`https://chat.taild6d848.ts.net/api/guestbook`) và Swagger (`https://chat.taild6d848.ts.net/docs`) trên tên miền thật.
+  - Bước tấn công: Cấu hình Burp Suite Intruder nhắm vào tên miền thật `chat.taild6d848.ts.net` (Port 443 HTTPS), chèn header bypass `X-Forwarded-For: testclient`.
 - **Mục 3.4 (Kết quả Kịch bản 1):** Chèn hình ảnh Burp Suite bắt được mã **HTTP 200 OK** tại mật khẩu `admin123`.
 
 ### 5.4. Người 7 phụ trách Chương 4: Triển khai Phòng thủ và Phân tích
@@ -242,8 +255,8 @@ Các thành viên viết báo cáo sử dụng các phát hiện kỹ thuật tr
   - Tốc độ và hiệu quả của tool: Bị triệt tiêu hoàn toàn sau lần thử thứ 5; dù trong từ điển có mật khẩu đúng thì kẻ tấn công vẫn không thể chiếm quyền tài khoản.
 
 ### 5.5. Người 8 phụ trách Chương 5: Kết luận
-- **Mục 5.1 (Kết quả đạt được):** Nhóm đã mô phỏng thành công quá trình từ do thám đến tấn công Brute Force, đồng thời xây dựng thành công giải pháp phòng thủ Account Lockout và Password Policy.
-- **Mục 5.2 (Hạn chế đề tài):** Thử nghiệm quy mô cục bộ (Localhost), chưa kiểm thử tấn công phân tán (Distributed Brute Force qua botnet/proxy xoay).
+- **Mục 5.1 (Kết quả đạt được):** Nhóm đã mô phỏng thành công quá trình từ do thám đến tấn công Brute Force từ xa qua tên miền thật, đồng thời xây dựng thành công giải pháp phòng thủ Account Lockout và Password Policy.
+- **Mục 5.2 (Hạn chế đề tài):** Thử nghiệm quy mô một máy trạm tấn công, chưa kiểm thử tấn công phân tán (Distributed Brute Force qua botnet/proxy xoay nhiều dải IP).
 - **Mục 5.3 (Hướng phát triển):** Tích hợp xác thực 2 bước (2FA / OTP TOTP), sinh trắc học (WebAuthn/FIDO2) để loại bỏ hoàn toàn nguy cơ từ mật khẩu truyền thống.
 
 ---

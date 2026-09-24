@@ -1,15 +1,5 @@
 PORTFOLIO_TOPICS = [
     {
-        "id": "ai-assistant",
-        "title": "🤖 AI Assistant",
-        "subtitle": "Trò chuyện trực tiếp với AI được huấn luyện về kỹ năng & dự án của Johnyyd",
-        "avatar": "🤖",
-        "type": "ai",
-        "unread": 0,
-        "is_online": True,
-        "last_message": "Sẵn sàng hỗ trợ bạn giải đáp thắc mắc!"
-    },
-    {
         "id": "about",
         "title": "👤 Johnyyd - Giới thiệu tác giả",
         "subtitle": "Tìm hiểu về kỹ năng, kinh nghiệm & đam mê lập trình",
@@ -42,17 +32,6 @@ PORTFOLIO_TOPICS = [
 ]
 
 TOPIC_MESSAGES = {
-    "ai-assistant": [
-        {
-            "id": "ai-welcome",
-            "sender": "Johnyyd AI",
-            "is_author": True,
-            "avatar": "🤖",
-            "content": "🤖 **Xin chào! Mình là AI Assistant**.\n\nMình là trợ lý thông minh đại diện cho Johnyyd.\n\nHãy đặt bất kỳ câu hỏi nào về kỹ năng Fullstack/DevOps, kinh nghiệm, các dự án Docker/Tailscale, hoặc cách hợp tác cùng Johnyyd nhé!",
-            "timestamp": "Vừa xong",
-            "type": "text"
-        }
-    ],
     "about": [
         {
             "id": "m1",

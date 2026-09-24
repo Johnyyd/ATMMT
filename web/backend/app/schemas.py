@@ -73,25 +73,3 @@ class GuestbookResponse(BaseModel):
     edited_at: Optional[datetime] = None
     expires_at: Optional[datetime] = None
     author_role: str = "anonymous"  # "admin", "user", or "anonymous"
-
-# --- Chatbot Schemas ---
-class ChatMessageItem(BaseModel):
-    role: str = Field(..., description="Role of message sender: 'user' or 'assistant'")
-    content: str = Field(..., max_length=2000, description="Message text content")
-
-class ChatRequest(BaseModel):
-    message: str = Field(..., min_length=1, max_length=2000, description="Nội dung câu hỏi của người dùng")
-    history: Optional[List[ChatMessageItem]] = Field(default_factory=list, description="Lịch sử cuộc trò chuyện")
-    provider: str = Field("auto", description="Nhà cung cấp LLM: 'auto', 'openrouter', 'groq'")
-    topic_id: Optional[str] = Field("about", description="Topic ID của cuộc trò chuyện")
-
-class ChatResponseData(BaseModel):
-    reply: str
-    provider_used: str
-    model_used: str
-    suggested_questions: Optional[List[str]] = Field(default=None, description="2-3 câu hỏi gợi ý tiếp theo")
-    error: Optional[str] = None
-
-class ChatAPIResponse(BaseModel):
-    success: bool = True
-    data: ChatResponseData

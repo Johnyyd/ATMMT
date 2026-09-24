@@ -1,4 +1,4 @@
-import { ChatTopic, ChatMessage, GuestbookEntry, AIChatHistoryItem, AIChatResponse } from '../types/chat';
+import { ChatTopic, ChatMessage, GuestbookEntry } from '../types/chat';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -30,16 +30,6 @@ export async function fetchTopics(): Promise<ChatTopic[]> {
   } catch (error) {
     console.warn('Fallback to local topics:', error);
     return [
-      {
-        id: 'ai-assistant',
-        title: '🤖 AI Assistant',
-        subtitle: 'Trò chuyện trực tiếp với AI được huấn luyện về kỹ năng & dự án của Johnyyd',
-        avatar: '🤖',
-        type: 'ai',
-        unread: 0,
-        is_online: true,
-        last_message: 'Sẵn sàng hỗ trợ bạn giải đáp thắc mắc!',
-      },
       {
         id: 'about',
         title: '👤 Johnyyd - Giới thiệu tác giả',
@@ -110,31 +100,6 @@ export async function likeGuestbookMessage(messageId: number): Promise<Guestbook
   });
   if (!res.ok) throw new Error('Failed to like guestbook message');
   return await res.json();
-}
-
-export async function sendAIChatMessage(
-  message: string,
-  history: AIChatHistoryItem[] = [],
-  provider: 'auto' | 'openrouter' | 'groq' = 'auto',
-  topic_id?: string
-): Promise<{ reply: string; provider_used: string; model_used: string; suggested_questions?: string[] }> {
-  const res = await fetch(`${API_BASE_URL}/chat`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, history, provider, ...(topic_id ? { topic_id } : {}) }),
-  });
-
-  if (!res.ok) {
-    throw new Error('AI Chat request failed');
-  }
-
-  const json: AIChatResponse = await res.json();
-  if (!json.success || !json.data) {
-    throw new Error(json.data?.error || 'AI Chat response error');
-  }
-
-  return json.data;
 }
 
 export async function fetchUserProfile(userId: number) {

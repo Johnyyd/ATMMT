@@ -11,7 +11,7 @@ from app.config import settings
 from app.database import engine, Base, SessionLocal
 from app.models import User
 from app.security import get_password_hash
-from app.routers import health, guestbook, topics, chat, auth, users
+from app.routers import health, guestbook, topics, auth, users
 from app.crypto import router as crypto_router
 from app.services.cleanup import cleanup_loop_task
 
@@ -82,12 +82,18 @@ async def strip_server_header(request: Request, call_next):
     return response
 
 
-allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "http://localhost,http://localhost:3000,http://localhost:80")
-allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
+allowed_origins_str = os.getenv("ALLOWED_ORIGINS", "*")
+if allowed_origins_str == "*":
+    allow_origin_regex = r".*"
+    allowed_origins = []
+else:
+    allow_origin_regex = None
+    allowed_origins = [origin.strip() for origin in allowed_origins_str.split(",")]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=allow_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,6 +109,5 @@ for prefix in [settings.API_PREFIX, f"{settings.API_PREFIX}/v1"]:
     app.include_router(auth.router, prefix=prefix)
     app.include_router(guestbook.router, prefix=prefix)
     app.include_router(topics.router, prefix=prefix)
-    app.include_router(chat.router, prefix=prefix)
     app.include_router(users.router, prefix=prefix)
     app.include_router(crypto_router, prefix=prefix)
