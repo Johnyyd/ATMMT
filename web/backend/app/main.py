@@ -27,10 +27,10 @@ def seed_default_admin():
         if not admin_user:
             logger.info("No admin user found. Creating default admin account...")
             import secrets
-            admin_password = os.getenv("ADMIN_PASSWORD") or "admin123"
+            admin_password = os.getenv("ADMIN_PASSWORD")
             if not admin_password:
                 admin_password = secrets.token_urlsafe(16)
-                logger.warning(f"⚠️ ADMIN_PASSWORD chưa được thiết lập. Đã tự động tạo mật khẩu admin: {admin_password}")
+                logger.warning(f"⚠️ ADMIN_PASSWORD chưa được thiết lập. Đã tự động tạo mật khẩu admin ngẫu nhiên an toàn: {admin_password}")
             
             default_admin = User(
                 username="admin",
@@ -61,7 +61,9 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.PROJECT_NAME,
     version=settings.VERSION,
-    openapi_url=f"{settings.API_PREFIX}/openapi.json",
+    openapi_url=f"{settings.API_PREFIX}/openapi.json" if settings.ENABLE_SWAGGER else None,
+    docs_url="/docs" if settings.ENABLE_SWAGGER else None,
+    redoc_url="/redoc" if settings.ENABLE_SWAGGER else None,
     lifespan=lifespan,
     debug=os.getenv("DEBUG", "False").lower() in ("true", "1", "t")
 )

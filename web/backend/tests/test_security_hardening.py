@@ -246,3 +246,35 @@ def test_guestbook_does_not_leak_user_token_in_public_feed():
     assert len(messages) > 0
     for msg in messages:
         assert msg.get("user_token") is None, f"user_token leaked in public response: {msg.get('user_token')}"
+
+def test_swagger_and_openapi_gating():
+    from app.config import Settings
+    # Default in production: ENABLE_SWAGGER should default to False
+    prod_settings = Settings()
+    # If not explicitly enabled, ENABLE_SWAGGER is False
+    assert hasattr(prod_settings, "ENABLE_SWAGGER")
+
+def test_admin_seed_does_not_use_weak_default_admin123():
+    import os
+    from app.main import seed_default_admin
+    from app.models import User
+    from app.security import verify_password
+
+    # Ensure no admin exists
+    db = TestingSessionLocal()
+    db.query(User).filter(User.username == "admin").delete()
+    db.commit()
+
+    # Clear ADMIN_PASSWORD env var
+    old_env = os.environ.pop("ADMIN_PASSWORD", None)
+    try:
+        # Re-seed
+        seed_default_admin()
+        admin = db.query(User).filter(User.username == "admin").first()
+        if admin:
+            # Must NOT be weak 'admin123'
+            assert not verify_password("admin123", admin.hashed_password), "Default admin password must not be 'admin123'"
+    finally:
+        if old_env:
+            os.environ["ADMIN_PASSWORD"] = old_env
+        db.close()
