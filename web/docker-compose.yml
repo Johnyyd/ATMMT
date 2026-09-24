@@ -1,0 +1,82 @@
+version: '3.8'
+
+services:
+  # Frontend Web Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: chat_portfolio_frontend
+    restart: always
+    cap_drop:
+      - ALL
+    ports:
+      - "5173:8080"
+    environment:
+      - VITE_API_BASE_URL=/api
+
+  # Backend FastAPI Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: chat_portfolio_backend
+    restart: always
+    cap_drop:
+      - ALL
+    ports:
+      - "7000:7000"
+    environment:
+      - DATABASE_URL=sqlite:////app/data/guestbook.db
+      - JWT_SECRET_KEY=b67c8585489f66710b42c4b8e21a287c954e7d4a96b4b5c8
+      - OPENROUTER_API_KEY=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
+      - OPENROUTER_MODEL=nvidia/nemotron-3-ultra-550b-a55b:free
+      - GROQ_API_KEY=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
+      - GROQ_MODEL=openai/gpt-oss-120b
+    volumes:
+      - backend_db_data:/app/data
+      - backend_uploads:/app/uploads
+
+  # Tailscale Public Proxy for Frontend (Johnyyd/tailscale_public_url pattern)
+  tailscale-frontend:
+    build:
+      context: ./tailscale
+      dockerfile: Dockerfile.tailscale
+    container_name: chat-portfolio
+    hostname: chat-portfolio
+    restart: always
+    environment:
+      - TS_AUTHKEY=tskey-auth-kHayJBjr9j11CNTRL-dfkHN8fxFdEnyYFPPQR3dEQ6gD3pKJxL
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_TARGET_HOST=frontend
+      - TS_TARGET_PORT=8080
+      - TS_FUNNEL_PORT=443
+    volumes:
+      - ts_frontend_state:/var/lib/tailscale
+    depends_on:
+      - frontend
+
+  # Tailscale Public Proxy for Backend (Johnyyd/tailscale_public_url pattern)
+  tailscale-backend:
+    build:
+      context: ./tailscale
+      dockerfile: Dockerfile.tailscale
+    container_name: chat-portfolio-backend
+    hostname: chat-portfolio-backend
+    restart: always
+    environment:
+      - TS_AUTHKEY=tskey-auth-kHayJBjr9j11CNTRL-dfkHN8fxFdEnyYFPPQR3dEQ6gD3pKJxL
+      - TS_STATE_DIR=/var/lib/tailscale
+      - TS_TARGET_HOST=backend
+      - TS_TARGET_PORT=7000
+      - TS_FUNNEL_PORT=7443
+    volumes:
+      - ts_backend_state:/var/lib/tailscale
+    depends_on:
+      - backend
+
+volumes:
+  backend_db_data:
+  backend_uploads:
+  ts_frontend_state:
+  ts_backend_state:
