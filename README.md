@@ -38,7 +38,107 @@
 
 ---
 
-## 3. Quy định làm việc & Quản lý Git
+## 3. TIMELINE & MILESTONES THỰC HIỆN DỰ ÁN (11 THÀNH VIÊN)
+
+Dự án được triển khai qua **4 Cột mốc (Milestones)** với sự phối hợp chuyển giao liên tục giữa 11 thành viên theo quy trình khép kín:
+
+```mermaid
+flowchart TD
+    subgraph M1 [MILESTONE 1: Chuẩn bị & Lý thuyết]
+        direction TB
+        P1_prep[Người 1, 2, 3: Cài đặt Docker & Setup Tailscale Public URL]
+        P4[Người 4: Soạn Mở đầu & Chương 1 - Lý thuyết Brute Force]
+        P5[Người 5: Soạn Chương 2 - Chính sách mật khẩu & Lockout]
+    end
+
+    subgraph M2 [MILESTONE 2: Thực nghiệm & Ghi hình]
+        direction TB
+        P1[Người 1: Chạy Kịch bản 1 - Do thám & Bẻ khóa 200 OK] --> P3_raw[Người 3: Quay video kịch bản 1]
+        P1 --> P6_in[Bàn giao ảnh tấn công cho Người 6]
+        P2[Người 2: Chạy Kịch bản 2 - Khóa tài khoản 403 Forbidden] --> P3_raw
+        P2 --> P7_in[Bàn giao ảnh phòng thủ cho Người 7]
+    end
+
+    subgraph M3 [MILESTONE 3: Viết Báo cáo & Dựng Video]
+        direction TB
+        P6[Người 6: Hoàn thiện Chương 3 - Kịch bản tấn công]
+        P7[Người 7: Hoàn thiện Chương 4 - Kịch bản phòng thủ]
+        P6 & P7 --> P8[Người 8: Viết Chương 5 - Kết luận & Khuyến nghị]
+        P3_raw --> P3[Người 3: Dựng hoàn thiện Video Demo dưới 10 phút]
+    end
+
+    subgraph M4 [MILESTONE 4: Đóng gói & Diễn tập]
+        direction TB
+        P4 & P5 & P6 & P7 & P8 --> P9[Người 9: Gom file, chuẩn hóa Format ĐH Công Thương]
+        P9 & P3 --> P10[Người 10: Thiết kế Slide PowerPoint 10-15 trang]
+        P10 & P3 --> P11[Người 11: Luyện tập thuyết trình & Khớp video demo]
+    end
+
+    M1 --> M2 --> M3 --> M4
+```
+
+### 3.1. Bảng Trách Nhiệm & Thứ Tự Thực Hiện Từng Người (11 Thành Viên)
+
+| Thứ tự | Thành viên | Vai trò chính | Điều kiện bắt đầu (Phụ thuộc) | Sản phẩm đầu ra (Deliverable) | Hạn chót (Milestone) |
+| :---: | :--- | :--- | :--- | :--- | :--- |
+| **1** | **Người 1** | Kỹ thuật Tấn công | Docker & Tailscale đã online | Bộ ảnh chụp 4 bước tấn công (lộ admin, swagger, brute force 200 OK) tại `assets/images/` | **Milestone 2** |
+| **2** | **Người 2** | Kỹ thuật Phòng thủ | Sau khi Người 1 tấn công xong Kịch bản 1 | Code Account Lockout & ảnh chụp hệ thống báo lỗi HTTP 403/429 tại `assets/images/` | **Milestone 2** |
+| **3** | **Người 3** | Video Editor | Đi cùng thao tác của Người 1 & Người 2 | Video Demo hoàn chỉnh $\le 10$ phút (mp4/link Drive) tại `assets/video/` | **Milestone 3** |
+| **4** | **Người 4** | Viết Mở đầu & Chương 1 | Bắt đầu ngay từ ngày đầu | File Word nháp `Chuong1.docx` tại `docs/drafts/` | **Milestone 1** |
+| **5** | **Người 5** | Viết Chương 2 | Bắt đầu ngay từ ngày đầu | File Word nháp `Chuong2.docx` tại `docs/drafts/` | **Milestone 1** |
+| **6** | **Người 6** | Viết Chương 3 | Nhận bộ ảnh thực nghiệm từ Người 1 | File Word nháp `Chuong3.docx` gắn đầy đủ ảnh tấn công tại `docs/drafts/` | **Milestone 3** |
+| **7** | **Người 7** | Viết Chương 4 | Nhận bộ ảnh thực nghiệm từ Người 2 | File Word nháp `Chuong4.docx` gắn đầy đủ ảnh phòng thủ tại `docs/drafts/` | **Milestone 3** |
+| **8** | **Người 8** | Viết Chương 5 | Nhận kết quả phân tích từ Người 6 & 7 | File Word nháp `Chuong5.docx` tại `docs/drafts/` | **Milestone 3** |
+| **9** | **Người 9** | Tổng biên tập / Format Word | Nhận đủ 5 file Word từ Người 4, 5, 6, 7, 8 | Bản Báo cáo Word hoàn chỉnh chuẩn mẫu ĐH Công Thương TP.HCM tại `FINAL_DELIVERY/` | **Milestone 4** |
+| **10** | **Người 10** | Thiết kế Slide | Nhận bản Word hoàn chỉnh từ Người 9 & Video từ Người 3 | Bộ Slide thuyết trình `.pptx` (10 - 15 trang) tại `presentations/` | **Milestone 4** |
+| **11** | **Người 11** | Thuyết trình & Diễn giả | Nhận Slide từ Người 10 & Video từ Người 3 | Kịch bản nói (Speech script) khớp từng giây với Video demo dưới 10 phút | **Milestone 4** |
+
+---
+
+### 3.2. Chi Tiết 4 Cột Mốc Quan Trọng (Milestones)
+
+#### 🚩 Milestone 1: Khởi Động, Môi Trường & Cơ Sở Lý Thuyết (Ngày 1 - Ngày 3)
+- **Nhiệm vụ:**
+  - Nhóm kỹ thuật (Người 1, 2, 3) triển khai Docker và cấp phát Public URL thành công (xem [HUONG_DAN_CAI_DAT_DOCKER_TAILSCALE.md](docs/HUONG_DAN_CAI_DAT_DOCKER_TAILSCALE.md)).
+  - Người 4 hoàn thành bản nháp Mở đầu và Chương 1 (Lý thuyết xác thực, Brute Force vs Dictionary Attack, công cụ Burp Suite/Hydra).
+  - Người 5 hoàn thành bản nháp Chương 2 (Chính sách mật khẩu NIST, cơ chế Account Lockout, Rate Limiting).
+- **Tiêu chí nghiệm thu (Checklist M1):**
+  - [ ] Web và Swagger UI truy cập được qua Internet bằng domain Tailscale.
+  - [ ] Có `docs/drafts/Chuong1.docx` và `docs/drafts/Chuong2.docx`.
+
+#### 🚩 Milestone 2: Thực Nghiệm Tấn Công & Phòng Thủ (Ngày 4 - Ngày 7)
+- **Nhiệm vụ:**
+  - Người 1 thực hiện Kịch bản 1: Do thám API Guestbook $\rightarrow$ Swagger `/docs` $\rightarrow$ Chạy từ điển trên Burp Suite Intruder $\rightarrow$ Bắt mã HTTP 200 OK tại mật khẩu `admin123`.
+  - Người 2 thực hiện Kịch bản 2: Vá code Account Lockout $\rightarrow$ Chạy lại công cụ $\rightarrow$ Bị chặn đứng với mã HTTP 403 Forbidden sau 5 lần sai.
+  - Người 3 quay toàn bộ màn hình thao tác của Người 1 và Người 2, lưu trữ video thô (raw footage).
+- **Tiêu chí nghiệm thu (Checklist M2):**
+  - [ ] Thư mục `assets/images/` có đầy đủ ảnh chụp minh chứng mã HTTP 200 và HTTP 403.
+  - [ ] Người 3 có toàn bộ video quay các thao tác thực nghiệm.
+
+#### 🚩 Milestone 3: Biên Soạn Báo Cáo 5 Chương & Hậu Kỳ Video (Ngày 8 - Ngày 11)
+- **Nhiệm vụ:**
+  - Người 6 dùng ảnh của Người 1 viết xong Chương 3.
+  - Người 7 dùng ảnh của Người 2 viết xong Chương 4.
+  - Người 8 tổng hợp kết quả viết xong Chương 5 (Kết luận, hạn chế và hướng phát triển).
+  - Người 3 dựng video demo hoàn chỉnh: Cắt ghép, tua nhanh đoạn lặp, chèn phụ đề/thuyết minh, đảm bảo thời lượng **dưới 10 phút**.
+- **Tiêu chí nghiệm thu (Checklist M3):**
+  - [ ] Đầy đủ 5 file `Chuong1.docx` đến `Chuong5.docx` trong `docs/drafts/`.
+  - [ ] Video demo hoàn thiện nằm tại `assets/video/` (hoặc có link Google Drive trong `assets/video/link_drive.txt`).
+
+#### 🚩 Milestone 4: Đóng Gói Toàn Diện, Thiết Kế Slide & Diễn Tập (Ngày 12 - Ngày 14)
+- **Nhiệm vụ:**
+  - Người 9 thu nhận 5 file Word, ghép thành 1 file duy nhất, chuẩn hóa format (Font Times New Roman 13/14, lề trên 2cm, dưới 2cm, trái 3cm, phải 2cm, dãn dòng 1.5, mục lục tự động).
+  - Người 10 thiết kế Slide PowerPoint (10 - 15 slide) bám sát các đề mục báo cáo và hình ảnh trực quan.
+  - Người 11 soạn kịch bản nói, luyện tập thuyết trình khớp tiến độ video demo dưới 10 phút trước cả nhóm để nhận góp ý.
+- **Tiêu chí nghiệm thu (Checklist M4 - Final Delivery):**
+  - [ ] File báo cáo Word hoàn chỉnh tại `FINAL_DELIVERY/BaoCao_Nhom1_BruteForce.docx`.
+  - [ ] File Slide trình chiếu tại `presentations/Slide_Nhom1_BruteForce.pptx`.
+  - [ ] Video demo sẵn sàng phát trong buổi thuyết trình.
+  - [ ] Diễn giả (Người 11) tự tin thuyết trình trôi chảy dưới 10 phút.
+
+---
+
+## 4. Quy định làm việc & Quản lý Git
 
 - `docs/drafts/`: Chứa file Word nháp của Người 4, 5, 6, 7, 8 (vd: `Chuong1_NguyenVanA.docx`).
 - `assets/images/`: Chứa ảnh chụp màn hình demo của Người 1, 2.
@@ -48,7 +148,7 @@
 
 ---
 
-## 4. DÀN Ý CHI TIẾT TỪNG CHƯƠNG (BẮT BUỘC TUÂN THỦ)
+## 5. DÀN Ý CHI TIẾT TỪNG CHƯƠNG (BẮT BUỘC TUÂN THỦ)
 
 Các thành viên phụ trách viết báo cáo (Người 4, 5, 6, 7, 8) phải dùng đúng các Tiêu đề (Heading) dưới đây trong file Word của mình. Có thể bổ sung ý nếu thấy phù hợp.
 
