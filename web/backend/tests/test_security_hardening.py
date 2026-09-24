@@ -97,3 +97,121 @@ def test_rate_limiter_ignores_spoofed_x_forwarded_for():
     )
     assert res.status_code == 429
     _auth_rate_limit_store.clear()
+
+def test_account_lockout_after_five_failed_attempts():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.rate_limit import reset_rate_limits
+    from app.security import get_password_hash
+
+    reset_rate_limits()
+    db = TestingSessionLocal()
+    target_user = User(
+        username="target_victim",
+        hashed_password=get_password_hash("VictimPass123!"),
+        role="user"
+    )
+    db.add(target_user)
+    db.commit()
+
+    test_client = TestClient(app)
+
+    # 4 failed attempts should yield 401 Unauthorized
+    for i in range(4):
+        reset_rate_limits()
+        resp = test_client.post("/api/v1/auth/token", data={"username": "target_victim", "password": f"wrong_{i}"})
+        assert resp.status_code == 401, f"Attempt {i+1} should be 401, got {resp.status_code}"
+
+    # 5th failed attempt should trigger account lockout (403 Forbidden)
+    reset_rate_limits()
+    resp5 = test_client.post("/api/v1/auth/token", data={"username": "target_victim", "password": "wrong_final"})
+    assert resp5.status_code == 403, f"5th attempt should be 403, got {resp5.status_code}"
+    assert "tạm khóa" in resp5.json()["detail"] or "locked" in resp5.json()["detail"].lower()
+
+    # 6th attempt with CORRECT password must STILL be rejected with 403 because account is locked
+    reset_rate_limits()
+    resp6 = test_client.post("/api/v1/auth/token", data={"username": "target_victim", "password": "VictimPass123!"})
+    assert resp6.status_code == 403
+    assert "tạm khóa" in resp6.json()["detail"] or "locked" in resp6.json()["detail"].lower()
+
+    db.delete(target_user)
+    db.commit()
+    db.close()
+    reset_rate_limits()
+
+def test_account_lockout_expires_and_resets():
+    from datetime import datetime, timedelta
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.rate_limit import reset_rate_limits
+    from app.security import get_password_hash
+
+    reset_rate_limits()
+    db = TestingSessionLocal()
+    # Create user with locked_until in the PAST (lock expired)
+    past_time = datetime.utcnow() - timedelta(minutes=1)
+    user = User(
+        username="expired_lock_user",
+        hashed_password=get_password_hash("ValidPass123!"),
+        role="user",
+        failed_login_attempts=5,
+        locked_until=past_time
+    )
+    db.add(user)
+    db.commit()
+
+    test_client = TestClient(app)
+    # Login with correct password after lock expiration -> should succeed (200)
+    resp = test_client.post("/api/v1/auth/token", data={"username": "expired_lock_user", "password": "ValidPass123!"})
+    assert resp.status_code == 200
+    assert "user" in resp.json()
+
+    # DB record should be reset
+    db.refresh(user)
+    assert user.locked_until is None
+    assert user.failed_login_attempts == 0
+
+    db.delete(user)
+    db.commit()
+    db.close()
+    reset_rate_limits()
+
+def test_login_success_resets_failed_counter():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.rate_limit import reset_rate_limits
+    from app.security import get_password_hash
+
+    reset_rate_limits()
+    db = TestingSessionLocal()
+    user = User(
+        username="counter_user",
+        hashed_password=get_password_hash("CounterPass123!"),
+        role="user"
+    )
+    db.add(user)
+    db.commit()
+
+    test_client = TestClient(app)
+
+    # 2 failed attempts
+    for _ in range(2):
+        reset_rate_limits()
+        test_client.post("/api/v1/auth/token", data={"username": "counter_user", "password": "bad"})
+
+    db.refresh(user)
+    assert user.failed_login_attempts == 2
+
+    # Successful login
+    reset_rate_limits()
+    resp = test_client.post("/api/v1/auth/token", data={"username": "counter_user", "password": "CounterPass123!"})
+    assert resp.status_code == 200
+
+    # Counter should be reset to 0
+    db.refresh(user)
+    assert user.failed_login_attempts == 0
+
+    db.delete(user)
+    db.commit()
+    db.close()
+    reset_rate_limits()

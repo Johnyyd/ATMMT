@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.security import OAuth2PasswordRequestForm
@@ -19,6 +20,76 @@ from app.rate_limit import auth_rate_limiter
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+MAX_FAILED_ATTEMPTS = 5       # Sai tối đa 5 lần
+LOCKOUT_DURATION_MINUTES = 15 # Khóa tài khoản trong 15 phút
+
+# Băm mật khẩu giả lập để ngăn chặn Timing Attack (User Enumeration qua phân tích thời gian phản hồi)
+DUMMY_PASSWORD_HASH = get_password_hash("dummy_constant_time_pass_for_timing_mitigation_2026")
+
+def authenticate_user(db: Session, username: str, password: str) -> User:
+    """
+    Xác thực người dùng với các cơ chế phòng thủ chuyên sâu:
+    1. Account Lockout: Khóa tài khoản 15 phút khi nhập sai 5 lần liên tiếp (HTTP 403).
+    2. Timing Attack Mitigation: Thực thi băm Bcrypt giả lập khi username không tồn tại.
+    3. Reset bộ đếm khi đăng nhập thành công hoặc khi hết thời hạn khóa.
+    """
+    user = db.query(User).filter(User.username == username).first()
+    now = datetime.utcnow()
+
+    if user:
+        # 1. Kiểm tra tài khoản có đang bị khóa hay không
+        if user.locked_until:
+            if now < user.locked_until:
+                remaining_seconds = int((user.locked_until - now).total_seconds())
+                remaining_minutes = max(1, remaining_seconds // 60)
+                logger.warning(f"Audit: Rejected login for locked account '{user.username}'. Remaining: {remaining_minutes}m")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Tài khoản đang bị tạm khóa do nhập sai quá nhiều lần. Vui lòng thử lại sau {remaining_minutes} phút."
+                )
+            else:
+                # Đã hết thời gian khóa -> tự động reset
+                user.locked_until = None
+                user.failed_login_attempts = 0
+                db.commit()
+
+        # 2. Kiểm tra mật khẩu
+        is_password_valid = verify_password(password, user.hashed_password)
+        if not is_password_valid:
+            user.failed_login_attempts += 1
+            if user.failed_login_attempts >= MAX_FAILED_ATTEMPTS:
+                user.locked_until = now + timedelta(minutes=LOCKOUT_DURATION_MINUTES)
+                db.commit()
+                logger.warning(f"Security Alert: Account '{user.username}' locked due to {MAX_FAILED_ATTEMPTS} failed attempts.")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=f"Tài khoản đã bị tạm khóa {LOCKOUT_DURATION_MINUTES} phút do nhập sai quá {MAX_FAILED_ATTEMPTS} lần liên tiếp."
+                )
+            db.commit()
+            logger.warning(f"Audit: Failed login for '{user.username}' (attempt {user.failed_login_attempts}/{MAX_FAILED_ATTEMPTS})")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Tên đăng nhập hoặc mật khẩu không đúng",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # 3. Đăng nhập thành công -> Reset số lần thử sai
+        if user.failed_login_attempts > 0 or user.locked_until is not None:
+            user.failed_login_attempts = 0
+            user.locked_until = None
+            db.commit()
+
+        return user
+    else:
+        # Username không tồn tại: chạy băm giả lập để giữ thời gian phản hồi đồng nhất (~150-250ms)
+        verify_password(password, DUMMY_PASSWORD_HASH)
+        logger.warning(f"Audit: Failed login for non-existent username '{username}'")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Tên đăng nhập hoặc mật khẩu không đúng",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register_user(encrypted_payload: EncryptedPayload, response: Response, db: Session = Depends(get_db), _: None = Depends(auth_rate_limiter)):
@@ -65,14 +136,7 @@ def login_user(encrypted_payload: EncryptedPayload, response: Response, db: Sess
     decrypted_data = decrypt_payload(encrypted_payload.encrypted_key, encrypted_payload.payload)
     payload = UserLogin(**decrypted_data)
     
-    user = db.query(User).filter(User.username == payload.username).first()
-    if not user or not verify_password(payload.password, user.hashed_password):
-        logger.warning(f"Audit: Failed login attempt for username '{payload.username}'")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Tên đăng nhập hoặc mật khẩu không đúng",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    user = authenticate_user(db, payload.username, payload.password)
     
     logger.info(f"Audit: Successful login for user '{user.username}'")
     token = create_access_token(data={"sub": user.username, "role": user.role, "user_id": user.id})
@@ -82,14 +146,7 @@ def login_user(encrypted_payload: EncryptedPayload, response: Response, db: Sess
 
 @router.post("/token", response_model=AuthResponse)
 def login_for_access_token(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db), _: None = Depends(auth_rate_limiter)):
-    user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        logger.warning(f"Audit: Failed token request for username '{form_data.username}'")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Tên đăng nhập hoặc mật khẩu không đúng",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+    user = authenticate_user(db, form_data.username, form_data.password)
     
     logger.info(f"Audit: Successful token issuance for user '{user.username}'")
     token = create_access_token(data={"sub": user.username, "role": user.role, "user_id": user.id})
