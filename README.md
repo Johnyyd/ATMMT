@@ -2,6 +2,8 @@
 
 ## 1. Bối cảnh và Yêu cầu dự án
 
+> 📖 **Tài liệu Kỹ thuật Chi tiết:** Xem hướng dẫn phân tích lỗ hổng do thám, kịch bản tấn công Brute Force và mã nguồn phòng thủ tại: [HUONG_DAN_DU_AN_BRUTE_FORCE.md](file:///home/tringuyen/Documents/GitHub/ATMMT/docs/HUONG_DAN_DU_AN_BRUTE_FORCE.md)
+
 - **Tên đề tài:** Kỹ thuật tấn công mạng - Tấn công Brute Force và chính sách mật khẩu.
 - **Quy mô:** Nhóm 11 thành viên.
 - **Yêu cầu đầu ra (Deliverables):**
