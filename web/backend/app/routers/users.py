@@ -8,7 +8,7 @@ from pathlib import Path
 
 from app.database import get_db
 from app.models import User
-from app.schemas import UserResponse, UserProfileUpdate, UserPasswordUpdate, EncryptedPayload
+from app.schemas import UserResponse, PublicUserProfileResponse, UserProfileUpdate, UserPasswordUpdate, EncryptedPayload
 from app.crypto import decrypt_payload
 from app.security import get_current_user, verify_password, get_password_hash
 
@@ -24,7 +24,7 @@ def get_user_profile(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.get("/{user_id}", response_model=UserResponse)
+@router.get("/{user_id}", response_model=PublicUserProfileResponse)
 def get_user(
     user_id: int,
     db: Session = Depends(get_db),

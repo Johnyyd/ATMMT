@@ -46,6 +46,20 @@ class UserResponse(BaseModel):
     location: Optional[str] = None
     updated_at: Optional[datetime] = None
 
+class PublicUserProfileResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    username: str
+    created_at: datetime
+    avatar_url: Optional[str] = None
+    cover_url: Optional[str] = None
+    display_name: Optional[str] = None
+    bio: Optional[str] = None
+    website_url: Optional[str] = None
+    location: Optional[str] = None
+    updated_at: Optional[datetime] = None
+
 class AuthResponse(BaseModel):
     user: UserResponse
 

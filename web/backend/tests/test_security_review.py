@@ -51,3 +51,44 @@ def test_cors_rejects_untrusted_origins():
     untrusted_resp = client.get("/api/health", headers={"Origin": "https://attacker-evil-domain.com"})
     assert untrusted_resp.status_code == 200
     assert "Access-Control-Allow-Origin" not in untrusted_resp.headers
+
+def test_public_user_profile_does_not_expose_role():
+    from app.models import User
+    from app.security import get_password_hash, create_access_token
+
+    db = TestingSessionLocal()
+    alice = User(
+        username="alice_admin",
+        hashed_password=get_password_hash("AdminPass123!"),
+        role="admin"
+    )
+    bob = User(
+        username="bob_user",
+        hashed_password=get_password_hash("UserPass123!"),
+        role="user"
+    )
+    db.add_all([alice, bob])
+    db.commit()
+    db.refresh(alice)
+    db.refresh(bob)
+    alice_id = alice.id
+    db.close()
+
+    bob_token = create_access_token({"sub": "bob_user"})
+    alice_token = create_access_token({"sub": "alice_admin"})
+
+    # Bob fetches Alice's public profile via GET /users/{alice.id}
+    res = client.get(f"/api/v1/users/{alice_id}", cookies={"access_token": bob_token})
+    assert res.status_code == 200
+    data = res.json()
+    assert data["username"] == "alice_admin"
+    assert data["id"] == alice_id
+    # CRITICAL: "role" MUST NOT be exposed in public user profile
+    assert "role" not in data
+
+    # Alice fetches her own profile via GET /users/me/profile
+    me_res = client.get("/api/v1/users/me/profile", cookies={"access_token": alice_token})
+    assert me_res.status_code == 200
+    me_data = me_res.json()
+    assert me_data["role"] == "admin"
+
