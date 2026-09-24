@@ -246,7 +246,7 @@ Nhóm Kỹ thuật và Video gồm 3 thành viên sẽ tiến hành thực nghi�
        - Chuẩn bị file từ điển `passwords.txt` chứa danh sách mật khẩu mẫu phổ biến (`123456`, `password`, `admin`, `admin123`, `root`, `qwerty`...).
        - Chặn bắt request gửi tới `POST https://chat.taild6d848.ts.net/api/auth/token` và đưa vào tab **Intruder** của Burp Suite:
          - **Target Host:** `chat.taild6d848.ts.net`, Port: `443`, Sử dụng HTTPS/TLS.
-         - **Request Header:** Bổ sung `X-Forwarded-For: testclient` (để vượt qua cơ chế giới hạn IP nếu có).
+         - **Request Header:** Bổ sung `X-Real-IP: testclient` (để vượt qua cơ chế giới hạn IP qua proxy Tailscale Funnel) và **xóa bỏ dòng `Content-Length`** để Burp Suite tự động tính độ dài body theo từng payload.
          - **Request Body:** `username=admin&password=§password§` (đặt biến payload tại vị trí mật khẩu).
          - **Payloads:** Nạp danh sách từ file `passwords.txt`.
        - Bấm **Start Attack** để công cụ tự động gửi loạt request thử nghiệm.
