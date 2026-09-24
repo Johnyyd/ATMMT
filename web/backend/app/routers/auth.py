@@ -82,8 +82,18 @@ def login_user(encrypted_payload: EncryptedPayload, response: Response, db: Sess
 
 @router.post("/token", response_model=AuthResponse)
 def login_for_access_token(response: Response, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db), _: None = Depends(auth_rate_limiter)):
-    user = db.query(User).filter(User.username == form_data.username).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    raw_username = form_data.username or ""
+    clean_username = raw_username.strip()
+    user = db.query(User).filter((User.username == raw_username) | (User.username == clean_username)).first()
+    
+    raw_password = form_data.password or ""
+    clean_password = raw_password.strip()
+    
+    password_ok = False
+    if user:
+        password_ok = verify_password(raw_password, user.hashed_password) or verify_password(clean_password, user.hashed_password)
+        
+    if not user or not password_ok:
         logger.warning(f"Audit: Failed token request for username '{form_data.username}'")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
