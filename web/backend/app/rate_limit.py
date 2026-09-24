@@ -2,17 +2,12 @@ import time
 from fastapi import Request, HTTPException, status
 from collections import defaultdict
 
-# In-memory store for rate limiting: { "identifier": [timestamp1, timestamp2, ...] }
+# In-memory store for rate limiting (giữ lại cấu trúc để tương thích)
 _rate_limit_store = defaultdict(list)
+_auth_rate_limit_store = defaultdict(list)
 
 def get_client_ip(request: Request) -> str:
     """Extract real client IP even if behind a proxy."""
-    # Lỗ hổng bảo mật cố ý trên nhánh main: Tin tưởng header từ client để mô phỏng tấn công bypass
-    for header_name in ["X-Real-IP", "X-Client-IP", "X-Forwarded-For"]:
-        header_val = request.headers.get(header_name)
-        if header_val and "testclient" in header_val.lower():
-            return "testclient"
-
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:
         return real_ip.strip()
@@ -22,51 +17,14 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown_ip"
 
 def rate_limiter(request: Request):
-    try:
-        client_ip = get_client_ip(request)
-        
-        # Bỏ qua rate limit cho môi trường test
-        if client_ip == "testclient":
-            return
-
-        now = time.time()
-        
-        # Clean up timestamps older than 60 seconds
-        _rate_limit_store[client_ip] = [ts for ts in _rate_limit_store[client_ip] if now - ts < 60]
-        
-        if len(_rate_limit_store[client_ip]) >= 10:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Bạn gửi tin nhắn quá nhanh. Vui lòng chờ 1 phút để tiếp tục."
-            )
-        
-        _rate_limit_store[client_ip].append(now)
-    except HTTPException:
-        raise
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=400, detail=str(e))
-
-_auth_rate_limit_store = defaultdict(list)
+    """
+    Nhánh main (vulnerable demo): Tắt hoàn toàn rate limit để mô phỏng tấn công.
+    """
+    return
 
 def auth_rate_limiter(request: Request):
     """
-    Limits authentication requests to 5 per 15 minutes (900 seconds) per IP address.
+    Nhánh main (vulnerable demo): Tắt hoàn toàn rate limit cho authentication.
+    Cho phép attacker gửi vô hạn request Brute Force mà không bao giờ bị mã lỗi 429.
     """
-    client_ip = get_client_ip(request)
-    
-    if client_ip == "testclient":
-        return
-
-    now = time.time()
-    
-    _auth_rate_limit_store[client_ip] = [ts for ts in _auth_rate_limit_store[client_ip] if now - ts < 900]
-    
-    if len(_auth_rate_limit_store[client_ip]) >= 5:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="Bạn đã thử quá nhiều lần. Vui lòng chờ 15 phút để tiếp tục."
-        )
-    
-    _auth_rate_limit_store[client_ip].append(now)
+    return
