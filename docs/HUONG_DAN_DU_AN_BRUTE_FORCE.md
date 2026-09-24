@@ -226,6 +226,10 @@ Nhóm Kỹ thuật và Video gồm 3 thành viên sẽ tiến hành thực nghi�
          ![Tra cứu CT Logs trên CertKit](../assets/images/crawl-subdomain.png)
        - Ảnh chụp màn hình Swagger UI trên subdomain backend `chat-ts.taild6d848.ts.net/docs` (`assets/images/found-url-backend.png`):
          ![Tài liệu Swagger UI trên Subdomain Backend](../assets/images/found-url-backend.png)
+       - Giao diện trực quan toàn màn hình Swagger UI trên backend (`assets/images/docs-gui-backend.png`):
+         ![Chi tiết Swagger UI trên Backend](../assets/images/docs-gui-backend.png)
+       - Ảnh chụp màn hình Burp Suite ghi nhận request/response tới Swagger UI `/docs` trên subdomain backend (`assets/images/found-docs-backend.png`):
+         ![Burp Suite bắt gói tin Swagger UI trên Backend Subdomain](../assets/images/found-docs-backend.png)
 
   3. **Bước 3: Thăm dò "Hệ thống Báo động" & Cơ chế Khóa (Defense Probing)**
      - **Thao tác thực hiện:** Gửi thử các request đăng nhập sai có chủ đích vào `POST https://chat.taild6d848.ts.net/api/auth/token` với `username=admin` và mật khẩu ngẫu nhiên (`111111`, `222222`...) liên tiếp từ 5 đến 10 lần.
