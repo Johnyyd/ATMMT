@@ -17,9 +17,15 @@ if not SECRET_KEY:
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-# Token Extraction Dependency
+# Token Extraction Dependency (Supports both HttpOnly cookie and Bearer token)
 def get_token_from_cookie(request: Request) -> Optional[str]:
-    return request.cookies.get("access_token")
+    token = request.cookies.get("access_token")
+    if token:
+        return token
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        return auth_header[7:].strip()
+    return None
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:

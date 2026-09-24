@@ -92,3 +92,55 @@ def test_public_user_profile_does_not_expose_role():
     me_data = me_res.json()
     assert me_data["role"] == "admin"
 
+def test_bearer_token_authentication_supported():
+    from app.models import User
+    from app.security import get_password_hash, create_access_token
+
+    db = TestingSessionLocal()
+    carol = User(
+        username="carol_api",
+        hashed_password=get_password_hash("CarolPass123!"),
+        role="user"
+    )
+    db.add(carol)
+    db.commit()
+    db.refresh(carol)
+    db.close()
+
+    carol_token = create_access_token({"sub": "carol_api"})
+
+    # Send Authorization: Bearer <token> in headers
+    headers = {"Authorization": f"Bearer {carol_token}"}
+    res = client.get("/api/v1/users/me/profile", headers=headers)
+    assert res.status_code == 200
+    data = res.json()
+    assert data["username"] == "carol_api"
+
+def test_like_endpoint_rate_limited():
+    from app.models import GuestbookMessage
+    from app.rate_limit import reset_rate_limits
+
+    reset_rate_limits()
+    db = TestingSessionLocal()
+    msg = GuestbookMessage(
+        author_name="LikeTarget",
+        content="Testing like rate limiting",
+        avatar_color="#3B82F6",
+        likes_count=0
+    )
+    db.add(msg)
+    db.commit()
+    db.refresh(msg)
+    msg_id = msg.id
+    db.close()
+
+    # The rate limit is 10 requests per 60 seconds
+    responses = []
+    for _ in range(12):
+        resp = client.post(f"/api/v1/guestbook/{msg_id}/like")
+        responses.append(resp.status_code)
+
+    assert 200 in responses
+    assert 429 in responses, f"Expected 429 Too Many Requests on like spamming, got {responses}"
+
+

@@ -267,7 +267,7 @@ async def delete_guestbook_message(
 
     return {"success": True, "message": f"Tin nhắn ID {message_id} đã được xóa thành công bởi Admin."}
 
-@router.post("/{message_id}/like", response_model=GuestbookResponse)
+@router.post("/{message_id}/like", response_model=GuestbookResponse, dependencies=[Depends(rate_limiter)])
 async def like_guestbook_message(message_id: int, db: Session = Depends(get_db)):
     msg = db.query(GuestbookMessage).filter(GuestbookMessage.id == message_id).first()
     if not msg:
