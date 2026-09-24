@@ -177,24 +177,62 @@ Sau khi biết được tài khoản mục tiêu là `admin`, kẻ tấn công l
 
 Nhóm Kỹ thuật và Video gồm 3 thành viên sẽ tiến hành thực nghiệm theo 2 kịch bản nối tiếp nhau:
 
-### 4.1. Kịch bản 1: Tấn công Brute Force thành công (Người 1 thao tác, Người 3 quay)
-- **Mục tiêu:** Chứng minh hệ thống ban đầu bị lộ sơ hở và bị bẻ khóa thành công.
-- **Các bước thực hiện:**
-  1. **Bước 1 (Do thám):**
-     - Mở trình duyệt truy cập `https://chat.taild6d848.ts.net/api/guestbook` hoặc `https://chat.taild6d848.ts.net/docs` (sử dụng URL công khai được cấp bởi Tailscale Funnel thay vì localhost).
-     - Chỉ ra dữ liệu JSON trả về có `author_name: "admin"` và `author_role: "admin"`. Người 1 chụp ảnh màn hình bước này (chứng minh tìm thấy username mục tiêu qua mạng Internet).
-  2. **Bước 2 (Chuẩn bị Wordlist):**
-     - Tạo một file từ điển mật khẩu `passwords.txt` chứa khoảng 10 - 20 mật khẩu mẫu (vd: `123456`, `password`, `qwerty`, `admin`, `admin123`, `letmein`).
-  3. **Bước 3 (Thực hiện Brute Force qua Burp Suite Intruder):**
-     - Target Host: `chat.taild6d848.ts.net`, Port `443`, chọn giao thức HTTPS / TLS.
-     - Bắt gói tin gửi tới endpoint: `POST https://chat.taild6d848.ts.net/api/auth/token`.
-     - Trong header request, thêm: `X-Forwarded-For: testclient` (để vượt qua Rate Limit).
-     - Định dạng body: `username=admin&password=§password§`.
-     - Nạp file `passwords.txt` vào Payload và bấm **Start Attack**.
-  4. **Bước 4 (Ghi nhận kết quả):**
-     - Các mật khẩu sai sẽ trả về mã **HTTP 401 Unauthorized** (chiều dài gói tin ngắn).
-     - Khi tới mật khẩu `admin123`, hệ thống trả về mã **HTTP 200 OK** kèm Token JWT.
-     - Người 1 chụp ảnh bảng kết quả của Burp Suite cho thấy dòng chứa `admin123` có HTTP Status 200.
+### 4.1. Kịch bản 1: Mô phỏng Tấn công Brute Force thành công (Người 1 thao tác, Người 3 quay)
+- **Bối cảnh mô phỏng:** Đóng vai trò là một Attacker đứng ngoài Internet, chỉ biết địa chỉ web mục tiêu `https://chat.taild6d848.ts.net/` và hoàn toàn không có quyền xem mã nguồn hay cơ sở dữ liệu bên trong.
+- **Mục tiêu:** Từng bước do thám, phát hiện sơ hở và thực hiện tấn công từ điển bẻ khóa thành công tài khoản quản trị `admin`.
+- **Tiến trình thực hiện chi tiết qua 4 bước:**
+
+  1. **Bước 1: Tiếp cận Mục tiêu & Do thám Tên đăng nhập (Reconnaissance & Target Hunting)**
+     - **Thao tác thực hiện:** Người 1 mở trình duyệt truy cập `https://chat.taild6d848.ts.net/`, mở tab **Network** (F12) hoặc Burp Suite Proxy để quan sát các gói tin nền khi tải trang hoặc khi bấm tương tác với mục Sổ lưu bút (Guestbook).
+     - **Dữ liệu thực tế nhận được (Response JSON):** Khi tải `GET /api/guestbook`, hệ thống phản hồi mảng tin nhắn chứa dữ liệu:
+       ```json
+       {
+         "id": 1,
+         "author_name": "admin",
+         "author_role": "admin",
+         "user_id": 1,
+         "content": "..."
+       }
+       ```
+     - **Suy luận của Attacker:** 
+       - Hệ thống có phân quyền vai trò người dùng (`author_role`).
+       - Tin nhắn số 1 thuộc về tài khoản quản trị cao nhất với tên đăng nhập xác thực là: `admin` (User ID: 1).
+     - **Quyết định tiếp theo:** Không cần tốn thời gian đoán mò username ngẫu nhiên; toàn bộ mục tiêu tấn công được thu hẹp vào duy nhất tài khoản `admin`.
+     - *Ghi nhận bằng chứng:* Người 1 và Người 3 chụp ảnh/quay video màn hình hiển thị JSON trả về có `author_name: "admin"` và `author_role: "admin"`.
+
+  2. **Bước 2: Tìm kiếm "Cửa vào" Xác thực thích hợp (Endpoint Hunting)**
+     - **Thao tác thực hiện:** Kiểm tra form đăng nhập trên giao diện web thấy gửi tới `/api/auth/login` với dữ liệu mã hóa phức tạp (RSA + AES). Attacker chuyển sang rà quét các đường dẫn tài liệu API mặc định của framework: truy cập `https://chat.taild6d848.ts.net/docs`.
+     - **Dữ liệu thực tế nhận được:** Trang Swagger UI mở công khai, hiển thị chi tiết toàn bộ API của hệ thống, bao gồm endpoint: `POST /api/auth/token`.
+     - **Suy luận của Attacker:** 
+       - Endpoint `/api/auth/token` nhận định dạng chuẩn `application/x-www-form-urlencoded` gồm 2 tham số: `username` và `password` dạng chữ thuần (Plaintext).
+       - Không cần viết code giải mã RSA/AES ở giao diện web, có thể gửi trực tiếp username và password vào endpoint này.
+     - **Quyết định tiếp theo:** Chọn `POST /api/auth/token` làm "cửa ngõ" chính xác để nạp vào công cụ bẻ khóa tự động.
+     - *Ghi nhận bằng chứng:* Chụp ảnh tài liệu Swagger `/docs` hiển thị endpoint `POST /api/auth/token`.
+
+  3. **Bước 3: Thăm dò "Hệ thống Báo động" & Cơ chế Khóa (Defense Probing)**
+     - **Thao tác thực hiện:** Gửi thử các request đăng nhập sai có chủ đích vào `POST https://chat.taild6d848.ts.net/api/auth/token` với `username=admin` và mật khẩu ngẫu nhiên (`111111`, `222222`...) liên tiếp từ 5 đến 10 lần.
+     - **Dữ liệu thực tế nhận được:** 
+       - Tất cả các lần thử đều trả về mã lỗi **HTTP 401 Unauthorized** (`{"detail": "Tên đăng nhập hoặc mật khẩu không đúng"}`).
+       - Không có CAPTCHA xuất hiện.
+       - Không có mã `HTTP 429 Too Many Requests` hay `HTTP 403 Forbidden`.
+       - Tốc độ phản hồi tức thì, không có độ trễ gia tăng sau mỗi lần sai.
+     - **Suy luận của Attacker:** Hệ thống nạn nhân hoàn toàn không có cơ chế **Account Lockout** (không khóa tài khoản sau $N$ lần sai). Đây là điều kiện lý tưởng để tiến hành tấn công vét cạn mật khẩu từ điển với tốc độ cao.
+     - **Quyết định tiếp theo:** Chuẩn bị file từ điển mật khẩu và đưa vào công cụ tự động hóa.
+
+  4. **Bước 4: Thực hiện Tấn công Từ điển & Chiếm quyền Điều khiển (Dictionary Attack & Exploitation)**
+     - **Thao tác thực hiện:**
+       - Chuẩn bị file từ điển `passwords.txt` chứa danh sách mật khẩu mẫu phổ biến (`123456`, `password`, `admin`, `admin123`, `root`, `qwerty`...).
+       - Chặn bắt request gửi tới `POST https://chat.taild6d848.ts.net/api/auth/token` và đưa vào tab **Intruder** của Burp Suite:
+         - **Target Host:** `chat.taild6d848.ts.net`, Port: `443`, Sử dụng HTTPS/TLS.
+         - **Request Header:** Bổ sung `X-Forwarded-For: testclient` (để vượt qua cơ chế giới hạn IP nếu có).
+         - **Request Body:** `username=admin&password=§password§` (đặt biến payload tại vị trí mật khẩu).
+         - **Payloads:** Nạp danh sách từ file `passwords.txt`.
+       - Bấm **Start Attack** để công cụ tự động gửi loạt request thử nghiệm.
+     - **Dữ liệu thực tế nhận được trên Bảng kết quả (Intruder Results):**
+       - Các mật khẩu sai (`123456`, `password`, `admin`): Trả về **HTTP 401** với chiều dài gói tin ngắn (~48 bytes).
+       - Tại dòng thử mật khẩu `admin123`: Mã trạng thái đột ngột chuyển sang **HTTP 200 OK**, chiều dài gói tin nhảy vọt lên **~382 bytes**.
+     - **Dữ liệu đoạt được & Chiếm quyền:** Phản hồi HTTP 200 trả về kèm Cookie chứa **Access Token JWT** với vai trò `role: "admin"`. Người 1 nạp Token này vào trình duyệt để đăng nhập thành công vào giao diện quản trị viên.
+     - *Ghi nhận bằng chứng:* Người 1 và Người 3 chụp ảnh bảng kết quả của Burp Suite cho thấy dòng chứa `admin123` có HTTP Status 200 và ảnh màn hình đăng nhập thành công vào trang web với quyền Admin.
 
 ---
 
@@ -240,10 +278,14 @@ Các thành viên viết báo cáo sử dụng các phát hiện kỹ thuật tr
 *(Lấy hình ảnh do Người 1 chụp và Người 3 quay clip)*
 - **Mục 3.1 (Môi trường thử nghiệm):** Mô tả hệ thống nạn nhân được triển khai trên máy chủ thật và công khai qua mạng Internet bằng tên miền Tailscale Funnel (`https://chat.taild6d848.ts.net`), không dùng localhost để tăng tính thực tế. Sử dụng API endpoint `/api/auth/token`.
 - **Mục 3.2 (Chuẩn bị Wordlist):** Liệt kê bảng mật khẩu mẫu trong file từ điển `passwords.txt`.
-- **Mục 3.3 (Các bước tiến hành):**
-  - Bước do thám: Tìm username `admin` qua API Guestbook (`https://chat.taild6d848.ts.net/api/guestbook`) và Swagger (`https://chat.taild6d848.ts.net/docs`) trên tên miền thật.
-  - Bước tấn công: Cấu hình Burp Suite Intruder nhắm vào tên miền thật `chat.taild6d848.ts.net` (Port 443 HTTPS), chèn header bypass `X-Forwarded-For: testclient`.
-- **Mục 3.4 (Kết quả Kịch bản 1):** Chèn hình ảnh Burp Suite bắt được mã **HTTP 200 OK** tại mật khẩu `admin123`.
+- **Mục 3.3 (Các bước tiến hành tấn công theo góc nhìn Attacker):**
+  - *Bước 1 (Do thám & Xác định mục tiêu):* Phân tích phản hồi `GET /api/guestbook` nhận diện `author_name: "admin"` và `author_role: "admin"`.
+  - *Bước 2 (Tìm cửa ngõ xác thực):* Khám phá tài liệu Swagger `/docs`, chọn endpoint `POST /api/auth/token` nhận dữ liệu form thuần thay vì `/api/auth/login` bị mã hóa.
+  - *Bước 3 (Thăm dò cơ chế bảo vệ):* Thử nghiệm gửi 5-10 request sai mật khẩu liên tiếp để chứng minh hệ thống không có Account Lockout và không chặn IP.
+  - *Bước 4 (Tiến hành tấn công từ điển):* Cấu hình Burp Suite Intruder nhắm vào tên miền thật `chat.taild6d848.ts.net` (Port 443 HTTPS), chèn header bypass `X-Forwarded-For: testclient`, nạp wordlist `passwords.txt`.
+- **Mục 3.4 (Kết quả thực nghiệm Kịch bản 1):** 
+  - Phân tích bảng kết quả: Các mật khẩu sai đều trả về **HTTP 401**, mật khẩu `admin123` trả về **HTTP 200 OK** với chiều dài gói tin tăng đột biến.
+  - Chèn hình ảnh Burp Suite bắt được mã 200 OK và ảnh đăng nhập chiếm quyền Admin thành công trên trình duyệt.
 
 ### 5.4. Người 7 phụ trách Chương 4: Triển khai Phòng thủ và Phân tích
 *(Lấy hình ảnh do Người 2 chụp)*
