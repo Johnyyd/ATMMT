@@ -31,26 +31,6 @@ export async function fetchTopics(): Promise<ChatTopic[]> {
     console.warn('Fallback to local topics:', error);
     return [
       {
-        id: 'about',
-        title: '👤 Johnyyd - Giới thiệu tác giả',
-        subtitle: 'Tìm hiểu về kỹ năng, kinh nghiệm & đam mê lập trình',
-        avatar: 'https://github.com/Johnyyd.png',
-        type: 'portfolio',
-        unread: 0,
-        is_online: true,
-        last_message: 'Chào mừng bạn! Rất vui được gặp bạn tại đây.',
-      },
-      {
-        id: 'repositories',
-        title: '🚀 Repositories Nổi Bật',
-        subtitle: 'Khám phá các dự án open-source & mã nguồn ấn tượng',
-        avatar: '🚀',
-        type: 'portfolio',
-        unread: 0,
-        is_online: true,
-        last_message: 'Các repository self-hosted & công cụ nổi bật.',
-      },
-      {
         id: 'guestbook',
         title: '💬 Public Guestbook',
         subtitle: ' Gửi tin nhắn đến tác giả & mọi người',

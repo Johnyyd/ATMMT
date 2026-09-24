@@ -20,7 +20,7 @@ import { guestbookWS } from './services/websocket';
 
 export const App: React.FC = () => {
   const [topics, setTopics] = useState<ChatTopic[]>([]);
-  const [activeTopicId, setActiveTopicId] = useState<string>('about');
+  const [activeTopicId, setActiveTopicId] = useState<string>('guestbook');
   const [topicMessagesMap, setTopicMessagesMap] = useState<Record<string, ChatMessage[]>>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState<boolean>(false);
@@ -88,6 +88,9 @@ export const App: React.FC = () => {
       try {
         const loadedTopics = await fetchTopics();
         setTopics(loadedTopics);
+        if (loadedTopics.length > 0 && !loadedTopics.some((t) => t.id === activeTopicId)) {
+          setActiveTopicId(loadedTopics[0].id);
+        }
       } catch (err) {
         console.error('Failed to load topics:', err);
       }

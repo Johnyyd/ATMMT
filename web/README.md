@@ -11,10 +11,8 @@ Một trang web Portfolio cá nhân kết hợp sổ lưu bút (Guestbook) công
 
 1. **Menu "Danh sách chat" (Sidebar Navigation)**:
    - Cột bên trái hoạt động như một ứng dụng nhắn tin thực thụ.
-   - Các chủ đề trò chuyện bao gồm:
-     - 👤 **Johnyyd - Giới thiệu tác giả**: Tiểu sử, kỹ năng, kinh nghiệm & liên kết cá nhân.
-     - 🚀 **Repositories Nổi Bật**: Danh sách dự án mã nguồn mở với thẻ preview tương tác, lượt Star/Fork và link GitHub.
-     - 💬 **Public Guestbook**: Sổ lưu bút cộng đồng cho phép tương tác 2 chiều.
+   - Danh sách trò chuyện tập trung vào:
+     - 💬 **Public Guestbook**: Sổ lưu bút cộng đồng cho phép tương tác 2 chiều và thử nghiệm bảo mật.
 
 2. **Khung Chat Thông Tin (Chat Window)**:
    - Bong bóng chat (bubble chat) hiển thị tự động dạng hội thoại live.
