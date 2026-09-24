@@ -20,6 +20,15 @@ class User(Base):
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
 
+    # Account Lockout & Brute Force Protection
+    failed_login_attempts = Column(Integer, default=0, nullable=False)
+    locked_until = Column(DateTime, nullable=True)
+
+    def __init__(self, **kwargs):
+        if "failed_login_attempts" not in kwargs:
+            kwargs["failed_login_attempts"] = 0
+        super().__init__(**kwargs)
+
     messages = relationship("GuestbookMessage", back_populates="user")
 
 class GuestbookMessage(Base):

@@ -71,7 +71,7 @@ def test_user_registration_and_login():
     # Public registration ALWAYS creates a regular 'user' account
     reg_resp = client.post("/api/v1/auth/register", json=encrypt_test_payload({
         "username": "testuser",
-        "password": "password123"
+        "password": "Password123!"
     }))
     assert reg_resp.status_code == 201
     data = reg_resp.json()
@@ -82,7 +82,7 @@ def test_user_registration_and_login():
     # Login user
     login_resp = client.post("/api/v1/auth/login", json=encrypt_test_payload({
         "username": "testuser",
-        "password": "password123"
+        "password": "Password123!"
     }))
     assert login_resp.status_code == 200
     
@@ -110,7 +110,7 @@ def test_guestbook_message_expiration_roles():
     # 2. Registered user post -> expires_at should be None (permanent retention)
     reg_resp = client.post("/api/v1/auth/register", json=encrypt_test_payload({
         "username": "member1",
-        "password": "password123"
+        "password": "Password123!"
     }))
     reg_user_token = reg_resp.cookies.get("access_token")
 
@@ -137,7 +137,7 @@ def test_admin_edit_and_delete_moderation():
     db = TestingSessionLocal()
     admin_user = User(
         username="sysadmin",
-        hashed_password=get_password_hash("adminpassword"),
+        hashed_password=get_password_hash("AdminPassword123!"),
         role="admin"
     )
     db.add(admin_user)
@@ -147,13 +147,13 @@ def test_admin_edit_and_delete_moderation():
     # Admin login
     admin_token = client.post("/api/v1/auth/login", json=encrypt_test_payload({
         "username": "sysadmin",
-        "password": "adminpassword"
+        "password": "AdminPassword123!"
     })).cookies.get("access_token")
 
     # Public regular user register & login
     user_token = client.post("/api/v1/auth/register", json=encrypt_test_payload({
         "username": "normie",
-        "password": "userpassword"
+        "password": "UserPassword123!"
     })).cookies.get("access_token")
 
     # Regular user attempts to edit -> 403 Forbidden
