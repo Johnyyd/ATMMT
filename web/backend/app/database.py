@@ -27,3 +27,23 @@ def get_db():
         yield db
     finally:
         db.close()
+
+def ensure_schema_columns(target_engine=engine):
+    """Ensure all required columns exist in database even if migrated from older versions."""
+    import logging
+    logger = logging.getLogger(__name__)
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(target_engine)
+        if "users" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("users")]
+            with target_engine.begin() as conn:
+                if "failed_login_attempts" not in columns:
+                    logger.info("Auto-migrating schema: adding failed_login_attempts to users table")
+                    conn.execute(text("ALTER TABLE users ADD COLUMN failed_login_attempts INTEGER NOT NULL DEFAULT 0"))
+                if "locked_until" not in columns:
+                    logger.info("Auto-migrating schema: adding locked_until to users table")
+                    conn.execute(text("ALTER TABLE users ADD COLUMN locked_until DATETIME"))
+    except Exception as e:
+        logger.warning(f"ensure_schema_columns skipped or failed: {e}")
+

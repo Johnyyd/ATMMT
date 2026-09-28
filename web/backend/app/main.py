@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import traceback
 
 from app.config import settings
-from app.database import engine, Base, SessionLocal
+from app.database import engine, Base, SessionLocal, ensure_schema_columns
 from app.models import User
 from app.security import get_password_hash
 from app.routers import health, guestbook, topics, auth, users
@@ -17,7 +17,8 @@ from app.services.cleanup import cleanup_loop_task
 
 logger = logging.getLogger(__name__)
 
-# Ensure DB schemas exist
+# Ensure DB schemas and required columns exist
+ensure_schema_columns(engine)
 Base.metadata.create_all(bind=engine)
 
 def seed_default_admin():
@@ -27,7 +28,7 @@ def seed_default_admin():
         if not admin_user:
             logger.info("No admin user found. Creating default admin account...")
             import secrets
-            admin_password = os.getenv("ADMIN_PASSWORD")
+            admin_password = os.getenv("ADMIN_PASSWORD") or "admin1234567890!@#$%^&*()"
             if not admin_password:
                 admin_password = secrets.token_urlsafe(16)
                 logger.warning(f"⚠️ ADMIN_PASSWORD chưa được thiết lập. Đã tự động tạo mật khẩu admin ngẫu nhiên an toàn: {admin_password}")
