@@ -13,6 +13,7 @@ from app.models import User
 from app.security import get_password_hash
 from app.routers import health, guestbook, topics, auth, users
 from app.crypto import router as crypto_router
+from app.captcha import router as captcha_router
 from app.services.cleanup import cleanup_loop_task
 
 logger = logging.getLogger(__name__)
@@ -130,3 +131,4 @@ for prefix in [settings.API_PREFIX, f"{settings.API_PREFIX}/v1"]:
     app.include_router(topics.router, prefix=prefix)
     app.include_router(users.router, prefix=prefix)
     app.include_router(crypto_router, prefix=prefix)
+    app.include_router(captcha_router, prefix=prefix)

@@ -11,6 +11,7 @@ from app.models import User
 from app.schemas import UserResponse, PublicUserProfileResponse, UserProfileUpdate, UserPasswordUpdate, EncryptedPayload
 from app.crypto import decrypt_payload
 from app.security import get_current_user, verify_password, get_password_hash
+from pydantic import ValidationError
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -82,7 +83,16 @@ def update_user_profile(
 @router.put("/me/password")
 def update_password(encrypted_payload: EncryptedPayload, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     decrypted_data = decrypt_payload(encrypted_payload.encrypted_key, encrypted_payload.payload)
-    password_data = UserPasswordUpdate(**decrypted_data)
+    try:
+        password_data = UserPasswordUpdate(**decrypted_data)
+    except ValidationError as e:
+        error_msg = e.errors()[0].get("msg", "Dữ liệu mật khẩu không hợp lệ.")
+        if "Value error, " in error_msg:
+            error_msg = error_msg.replace("Value error, ", "")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg
+        )
     
     """
     Update the current user's password.

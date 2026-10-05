@@ -1,9 +1,17 @@
-import { AuthResponse, LoginPayload, RegisterPayload, User } from '../types/auth';
+import { AuthResponse, CaptchaResponse, LoginPayload, RegisterPayload, User } from '../types/auth';
 import { encryptPayload } from '../utils/crypto';
 
 const USER_KEY = 'chat_portfolio_user';
 
 export const authService = {
+
+  async getCaptcha(): Promise<CaptchaResponse> {
+    const response = await fetch('/api/v1/auth/captcha');
+    if (!response.ok) {
+      throw new Error('Không thể tải mã CAPTCHA.');
+    }
+    return response.json();
+  },
 
   getUser(): User | null {
     const raw = localStorage.getItem(USER_KEY);

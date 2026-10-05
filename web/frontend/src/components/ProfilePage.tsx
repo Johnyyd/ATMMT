@@ -3,6 +3,7 @@ import { authService } from '../services/authService';
 import { fetchUserProfile } from '../services/api';
 import { User } from '../types/auth';
 import { MapPin, Globe, Calendar, FileText, Users, User as UserIcon, ArrowLeft, Camera, Edit2, Key, X, Check } from 'lucide-react';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 
 interface ProfilePageProps {
   userId?: number | null;
@@ -92,6 +93,29 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack }) => {
     e.preventDefault();
     setPasswordError('');
     setPasswordSuccess('');
+
+    const pw = passwordForm.new_password;
+    if (pw.length < 8) {
+      setPasswordError('Mật khẩu mới phải có tối thiểu 8 ký tự.');
+      return;
+    }
+    if (!/[a-z]/.test(pw)) {
+      setPasswordError('Mật khẩu mới phải chứa ít nhất 1 chữ cái viết thường.');
+      return;
+    }
+    if (!/[A-Z]/.test(pw)) {
+      setPasswordError('Mật khẩu mới phải chứa ít nhất 1 chữ cái viết hoa.');
+      return;
+    }
+    if (!/[0-9]/.test(pw)) {
+      setPasswordError('Mật khẩu mới phải chứa ít nhất 1 chữ số.');
+      return;
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pw)) {
+      setPasswordError('Mật khẩu mới phải chứa ít nhất 1 ký tự đặc biệt.');
+      return;
+    }
+
     try {
       await authService.updatePassword(passwordForm.current_password, passwordForm.new_password);
       setPasswordSuccess('Đổi mật khẩu thành công!');
@@ -339,8 +363,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onBack }) => {
                   <input type="password" required value={passwordForm.current_password} onChange={e => setPasswordForm(p => ({...p, current_password: e.target.value}))} className="w-full bg-zinc-900 light:bg-slate-50 border border-zinc-800 light:border-slate-300 rounded-lg px-3 py-2.5 text-white light:text-slate-900" />
                 </div>
                 <div>
-                  <label className="block text-sm text-zinc-400 light:text-slate-600 mb-1">Mật khẩu mới</label>
-                  <input type="password" required minLength={6} value={passwordForm.new_password} onChange={e => setPasswordForm(p => ({...p, new_password: e.target.value}))} className="w-full bg-zinc-900 light:bg-slate-50 border border-zinc-800 light:border-slate-300 rounded-lg px-3 py-2.5 text-white light:text-slate-900" />
+                  <label className="block text-sm text-zinc-400 light:text-slate-600 mb-1">Mật khẩu mới (Tối thiểu 8 ký tự)</label>
+                  <input type="password" required minLength={8} value={passwordForm.new_password} onChange={e => setPasswordForm(p => ({...p, new_password: e.target.value}))} className="w-full bg-zinc-900 light:bg-slate-50 border border-zinc-800 light:border-slate-300 rounded-lg px-3 py-2.5 text-white light:text-slate-900" />
+                  <PasswordStrengthMeter password={passwordForm.new_password} />
                 </div>
                 <div className="pt-4 flex justify-end gap-3">
                   <button type="button" onClick={() => setIsChangingPassword(false)} className="px-4 py-2 text-sm text-zinc-400 hover:text-white font-medium">Hủy</button>

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, User, Lock, Shield, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, User, Lock, Shield, ArrowRight, AlertCircle, CheckCircle2, RotateCw } from 'lucide-react';
 import { authService } from '../services/authService';
-import { User as UserType } from '../types/auth';
+import { CaptchaResponse, User as UserType } from '../types/auth';
+import { PasswordStrengthMeter } from './PasswordStrengthMeter';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -13,9 +14,31 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [isLogin, setIsLogin] = useState<boolean>(true);
   const [username, setUsername] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [captcha, setCaptcha] = useState<CaptchaResponse | null>(null);
+  const [captchaAnswer, setCaptchaAnswer] = useState<string>('');
+  const [captchaLoading, setCaptchaLoading] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  const loadCaptcha = async () => {
+    setCaptchaLoading(true);
+    try {
+      const data = await authService.getCaptcha();
+      setCaptcha(data);
+      setCaptchaAnswer('');
+    } catch (err) {
+      console.error('Lỗi tải CAPTCHA:', err);
+    } finally {
+      setCaptchaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      loadCaptcha();
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -23,18 +46,58 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
     e.preventDefault();
     setError(null);
     setSuccessMsg(null);
+
+    // Client-side validations
+    if (!isLogin) {
+      if (password.length < 8) {
+        setError('Mật khẩu phải có tối thiểu 8 ký tự.');
+        return;
+      }
+      if (!/[a-z]/.test(password)) {
+        setError('Mật khẩu phải chứa ít nhất 1 chữ cái viết thường.');
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        setError('Mật khẩu phải chứa ít nhất 1 chữ cái viết hoa.');
+        return;
+      }
+      if (!/[0-9]/.test(password)) {
+        setError('Mật khẩu phải chứa ít nhất 1 chữ số.');
+        return;
+      }
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        setError('Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt.');
+        return;
+      }
+    }
+
+    if (!captchaAnswer.trim()) {
+      setError('Vui lòng nhập kết quả phép tính CAPTCHA để xác thực.');
+      return;
+    }
+
     setLoading(true);
 
     try {
       if (isLogin) {
-        const res = await authService.login({ username, password });
+        const res = await authService.login({
+          username,
+          password,
+          captcha_token: captcha?.captcha_token,
+          captcha_answer: captchaAnswer,
+        });
         setSuccessMsg(`Đăng nhập thành công! Chào mừng ${res.user.username}`);
         setTimeout(() => {
           onSuccess(res.user);
           onClose();
         }, 600);
       } else {
-        const res = await authService.register({ username, password });
+        const res = await authService.register({
+          username,
+          password,
+          captcha_token: captcha?.captcha_token,
+          captcha_answer: captchaAnswer,
+        });
         setSuccessMsg('Đăng ký tài khoản Thành viên thành công!');
         setTimeout(() => {
           onSuccess(res.user);
@@ -43,6 +106,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
       }
     } catch (err: any) {
       setError(err.message || 'Đã xảy ra lỗi, vui lòng thử lại.');
+      // Refresh captcha on failure
+      loadCaptcha();
     } finally {
       setLoading(false);
     }
@@ -80,7 +145,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
         <div className="flex p-1 mb-6 rounded-2xl bg-slate-800/80 border border-white/5">
           <button
             type="button"
-            onClick={() => { setIsLogin(true); setError(null); setSuccessMsg(null); }}
+            onClick={() => { setIsLogin(true); setError(null); setSuccessMsg(null); loadCaptcha(); }}
             className={`flex-1 py-2 text-sm font-semibold rounded-xl transition-all duration-200 ${
               isLogin ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
             }`}
@@ -89,7 +154,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
           </button>
           <button
             type="button"
-            onClick={() => { setIsLogin(false); setError(null); setSuccessMsg(null); }}
+            onClick={() => { setIsLogin(false); setError(null); setSuccessMsg(null); loadCaptcha(); }}
             className={`flex-1 py-2 text-sm font-semibold rounded-xl transition-all duration-200 ${
               !isLogin ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
             }`}
@@ -135,20 +200,74 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">
-              Mật khẩu
+              Mật khẩu {isLogin ? '' : '(Tối thiểu 8 ký tự)'}
             </label>
             <div className="relative">
               <Lock className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-500" />
               <input
                 type="password"
                 required
-                minLength={6}
+                minLength={8}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-800/60 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
               />
             </div>
+            {!isLogin && <PasswordStrengthMeter password={password} />}
+          </div>
+
+          {/* CAPTCHA Protection Section */}
+          <div className="pt-1">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Mã xác thực chống Bot (CAPTCHA)
+              </label>
+              <button
+                type="button"
+                onClick={loadCaptcha}
+                disabled={captchaLoading}
+                className="text-xs flex items-center gap-1 text-blue-400 hover:text-blue-300 transition-colors"
+                title="Đổi mã khác"
+              >
+                <RotateCw className={`w-3 h-3 ${captchaLoading ? 'animate-spin' : ''}`} />
+                <span>Đổi mã</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 items-center">
+              {/* SVG Display */}
+              <div 
+                className="h-[46px] rounded-xl bg-slate-800/80 border border-white/10 flex items-center justify-center overflow-hidden shadow-inner cursor-pointer hover:border-blue-500/40 transition-colors"
+                onClick={loadCaptcha}
+                title="Bấm để đổi mã mới"
+              >
+                {captchaLoading ? (
+                  <div className="w-5 h-5 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                ) : captcha?.captcha_svg ? (
+                  <div 
+                    dangerouslySetInnerHTML={{ __html: captcha.captcha_svg }}
+                    className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full" 
+                  />
+                ) : (
+                  <span className="text-xs text-slate-500">Đang tải mã...</span>
+                )}
+              </div>
+
+              {/* Answer Input */}
+              <input
+                type="text"
+                required
+                autoComplete="off"
+                placeholder="Nhập đáp án..."
+                value={captchaAnswer}
+                onChange={(e) => setCaptchaAnswer(e.target.value)}
+                className="w-full px-3.5 py-2.5 h-[46px] rounded-xl bg-slate-800/60 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all font-mono text-center tracking-wider font-semibold"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 mt-1">
+              * Tính kết quả phép tính ở hình trên để xác thực người dùng thật.
+            </p>
           </div>
 
           <button

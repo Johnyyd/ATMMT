@@ -20,6 +20,8 @@ def validate_password_strength(v: str) -> str:
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="Tên đăng nhập")
     password: str = Field(..., min_length=8, max_length=100, description="Mật khẩu")
+    captcha_token: Optional[str] = Field(None, description="Token mã CAPTCHA")
+    captcha_answer: Optional[str] = Field(None, description="Đáp án mã CAPTCHA")
 
     @field_validator("password")
     @classmethod
@@ -29,6 +31,8 @@ class UserCreate(BaseModel):
 class UserLogin(BaseModel):
     username: str = Field(..., description="Tên đăng nhập")
     password: str = Field(..., description="Mật khẩu")
+    captcha_token: Optional[str] = Field(None, description="Token mã CAPTCHA")
+    captcha_answer: Optional[str] = Field(None, description="Đáp án mã CAPTCHA")
 
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)

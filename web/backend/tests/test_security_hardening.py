@@ -278,3 +278,71 @@ def test_admin_seed_does_not_use_weak_default_admin123():
         if old_env:
             os.environ["ADMIN_PASSWORD"] = old_env
         db.close()
+
+def test_captcha_generation():
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    test_client = TestClient(app)
+    resp = test_client.get("/api/v1/auth/captcha")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "captcha_token" in data
+    assert "captcha_svg" in data
+    assert "<svg" in data["captcha_svg"]
+    assert "</svg>" in data["captcha_svg"]
+
+def test_captcha_verification_rejects_wrong_answer():
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.rate_limit import reset_rate_limits
+    from tests.test_auth_and_moderation import encrypt_test_payload
+
+    reset_rate_limits()
+    test_client = TestClient(app)
+
+    # 1. Fetch captcha
+    c_resp = test_client.get("/api/v1/auth/captcha")
+    c_data = c_resp.json()
+
+    # 2. Register with WRONG answer
+    reg_payload = encrypt_test_payload({
+        "username": "wrong_captcha_user",
+        "password": "Password123!",
+        "captcha_token": c_data["captcha_token"],
+        "captcha_answer": "999999" # wrong answer
+    })
+    res = test_client.post("/api/v1/auth/register", json=reg_payload)
+    assert res.status_code == 400
+    assert "CAPTCHA không chính xác" in res.json()["detail"] or "captcha" in res.json()["detail"].lower()
+
+def test_captcha_verification_accepts_correct_answer():
+    import jwt
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.security import SECRET_KEY, ALGORITHM
+    from app.rate_limit import reset_rate_limits
+    from tests.test_auth_and_moderation import encrypt_test_payload
+
+    reset_rate_limits()
+    test_client = TestClient(app)
+
+    # 1. Fetch captcha
+    c_resp = test_client.get("/api/v1/auth/captcha")
+    c_data = c_resp.json()
+
+    # 2. Extract true answer from signed token for test verification
+    token_payload = jwt.decode(c_data["captcha_token"], SECRET_KEY, algorithms=[ALGORITHM])
+    correct_ans = token_payload["ans"]
+
+    # 3. Register with CORRECT answer
+    reg_payload = encrypt_test_payload({
+        "username": "correct_captcha_user",
+        "password": "Password123!",
+        "captcha_token": c_data["captcha_token"],
+        "captcha_answer": correct_ans
+    })
+    res = test_client.post("/api/v1/auth/register", json=reg_payload)
+    assert res.status_code == 201
+    assert res.json()["user"]["username"] == "correct_captcha_user"
+

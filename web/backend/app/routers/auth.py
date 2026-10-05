@@ -16,10 +16,21 @@ from app.security import (
     get_current_user
 )
 from app.rate_limit import auth_rate_limiter
+from app.captcha import verify_captcha
+from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+def extract_validation_error(e: ValidationError) -> str:
+    errors = e.errors()
+    if errors:
+        msg = errors[0].get("msg", "Dữ liệu không hợp lệ.")
+        if "Value error, " in msg:
+            msg = msg.replace("Value error, ", "")
+        return msg
+    return "Dữ liệu không hợp lệ."
 
 MAX_FAILED_ATTEMPTS = 5       # Sai tối đa 5 lần
 LOCKOUT_DURATION_MINUTES = 15 # Khóa tài khoản trong 15 phút
@@ -94,7 +105,16 @@ def authenticate_user(db: Session, username: str, password: str) -> User:
 @router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register_user(encrypted_payload: EncryptedPayload, response: Response, db: Session = Depends(get_db), _: None = Depends(auth_rate_limiter)):
     decrypted_data = decrypt_payload(encrypted_payload.encrypted_key, encrypted_payload.payload)
-    payload = UserCreate(**decrypted_data)
+    try:
+        payload = UserCreate(**decrypted_data)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=extract_validation_error(e)
+        )
+    
+    if payload.captcha_token or payload.captcha_answer:
+        verify_captcha(payload.captcha_token, payload.captcha_answer)
     
     # Check if username already exists
     existing_user = db.query(User).filter(User.username == payload.username).first()
@@ -134,7 +154,16 @@ def register_user(encrypted_payload: EncryptedPayload, response: Response, db: S
 @router.post("/login", response_model=AuthResponse)
 def login_user(encrypted_payload: EncryptedPayload, response: Response, db: Session = Depends(get_db), _: None = Depends(auth_rate_limiter)):
     decrypted_data = decrypt_payload(encrypted_payload.encrypted_key, encrypted_payload.payload)
-    payload = UserLogin(**decrypted_data)
+    try:
+        payload = UserLogin(**decrypted_data)
+    except ValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=extract_validation_error(e)
+        )
+    
+    if payload.captcha_token or payload.captcha_answer:
+        verify_captcha(payload.captcha_token, payload.captcha_answer)
     
     user = authenticate_user(db, payload.username, payload.password)
     

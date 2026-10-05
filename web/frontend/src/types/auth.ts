@@ -20,13 +20,22 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface CaptchaResponse {
+  captcha_token: string;
+  captcha_svg: string;
+}
+
 export interface LoginPayload {
   username: string;
   password: string;
+  captcha_token?: string;
+  captcha_answer?: string;
 }
 
 export interface RegisterPayload {
   username: string;
   password: string;
   role?: string;
+  captcha_token?: string;
+  captcha_answer?: string;
 }
