@@ -1,143 +1,118 @@
-# CHƯƠNG 2: CHÍNH SÁCH MẬT KHẨU VÀ PHÒNG THỦ
+# CHƯƠNG 2: CHÍNH SÁCH MẬT KHẨU VÀ CÁC CƠ CHẾ PHÒNG THỦ BRUTE FORCE
 
 ## 2.1. Chính sách mật khẩu (Password Policy) là gì?
 
-**Định nghĩa**: Chính sách mật khẩu là bộ quy định và tiêu chuẩn xác định đặc điểm các mật khẩu được phép sử dụng trong hệ thống, bao gồm:
-- Độ dài tối thiểu và tối đa
-- Yêu cầu về độ phức tạp (kích thước bộ ký tự sử dụng)
-- Giới hạn về việc tái sử dụng mật khẩu cũ
-- Thời gian tồn tại của mật khẩu trước khi phải thay đổi
-- Hành động khi vi phạm chính sách (từ chối, cảnh báo, khóa tài khoản)
+**Định nghĩa**: Chính sách mật khẩu là tập hợp các quy định kỹ thuật và nguyên tắc bắt buộc mà hệ thống áp dụng để kiểm soát việc tạo lập, sử dụng và bảo dưỡng mật khẩu của người dùng, bao gồm:
+- **Độ dài tối thiểu và tối đa** (Minimum & Maximum Length).
+- **Yêu cầu về độ phức tạp** (Complexity Requirements): Bắt buộc chứa các nhóm ký tự khác nhau (chữ hoa, chữ thường, chữ số, ký tự đặc biệt).
+- **Ngăn chặn mật khẩu phổ biến / yếu** (Common Passwords Blacklist).
+- **Giới hạn tái sử dụng mật khẩu cũ** (Password History).
+- **Hành động phản ứng khi vi phạm** (Từ chối khởi tạo, cảnh báo vi phạm, ghi log kiểm toán).
 
-**Vai trò trong việc bảo vệ hệ thống**:
-1. **Tăng cường độ khó ataque**: Làm tăng số lượng tổ hợp mật khẩu khả thi
-2. **Ngăn chặn mật khẩu yếu**: Loại bỏ các mật khẩu phổ biến dễ đoán
-3. **Tích hợp với các cơ chế bảo vệ khác**: Hiệu lực khi kết hợp với Account Lockout, Rate Limiting
-4. **Tuân thủ tiêu chuẩn an toàn thông tin**: Đáp ứng các yêu cầu như NIST, ISO 27001, PCI-DSS
+### Vai trò của chính sách mật khẩu trong an toàn hệ thống:
+1. **Mở rộng không gian khóa (Keyspace)**: Buộc không gian tổ hợp mật khẩu phải đủ lớn, khiến thời gian tính toán của kẻ tấn công vét cạn tăng lên cấp số nhân và trở nên bất khả thi trong thực tế.
+2. **Loại bỏ điểm yếu từ mật khẩu mặc định và mật khẩu thông dụng**: Ngăn chặn người dùng đặt các chuỗi ký tự đơn giản như `123456`, `admin123` hay trùng với `username`.
+3. **Phối hợp phòng thủ đa tầng (Defense-in-Depth)**: Chính sách mật khẩu mạnh là tuyến phòng thủ lõi, khi kết hợp với Account Lockout, Rate Limiting và CAPTCHA sẽ tạo thành pháo đài vững chắc bảo vệ hệ thống xác thực.
+4. **Đáp ứng các tiêu chuẩn an toàn thông tin quốc tế**: Tuân thủ hướng dẫn định danh số của NIST SP 800-63B, ISO/IEC 27001 và PCI-DSS.
 
-Trong hệ thống trước khi vá lỗi (nhánh `main`):
-- Độ dài tối thiểu: 6 ký tự
-- Không yêu cầu độ phức tạp (chữ hoa, thường, số, ký tự đặc biệt)
-- Mật khẩu mặc định: "admin123" khi biến môi trường ADMIN_PASSWORD không được thiết lập
+---
 
 ## 2.2. Tiêu chuẩn của một mật khẩu mạnh
 
-### Yếu tố độ dài (Min Length)
-- **Lý do**: Độ dài là yếu tố quan trọng nhất trong việc cưỡng chế Brute Force
-- **Tác động**: Mỗi ký tự bổ sung tăng số lượng tổ hợp theo cấp số nhân với kích thước bộ ký tự
-- **Ví dụ**: 
-  - 6 ký tự chỉ số: 10^6 = 1.000.000組合
-  - 8 ký tự chỉ số: 10^8 = 100.000.000組合 (tăng 100x)
-  - 8 ký tựalphanumeric thường: 36^8 ≈ 2.8 trillion組合
+### 2.2.1. Yếu tố độ dài (Minimum Length)
+- **Tầm quan trọng**: Độ dài là yếu tố quyết định hàng đầu trong việc gia tăng độ an toàn của mật khẩu.
+- **Tác động toán học**: Khi tăng thêm mỗi ký tự cho mật khẩu, số phép thử mà kẻ tấn công phải duyệt qua sẽ được nhân lên với kích thước của bộ ký tự ($C$).
+- **So sánh trực quan**:
+  - Mật khẩu 6 ký tự chỉ gồm chữ số: $10^6 = 1.000.000$ tổ hợp (bẻ khóa trong vòng < 1 giây).
+  - Mật khẩu 8 ký tự chỉ gồm chữ số: $10^8 = 100.000.000$ tổ hợp (tăng 100 lần).
+  - Mật khẩu 8 ký tự chữ cái thường (a-z): $26^8 \approx 2{,}08 \times 10^{11}$ tổ hợp.
+  - Mật khẩu 8 ký tự kết hợp đầy đủ 4 nhóm: $94^8 \approx 6{,}09 \times 10^{15}$ tổ hợp.
 
-### Yếu tố độ phức tạp (Complexity)
-- **Bộ ký tự thường dùng**:
-  - Chữ thường (a-z): 26 ký tự
-  - Chữ hoa (A-Z): 26 ký tự
-  - Chữ số (0-9): 10 ký tự
-  - Ký tự đặc biệt (!@#$%^&*(),.?":{}|<>): khoảng 32 ký tự
-- **Tác động**: Kết hợp các bộ ký tự tăng độ bewilderment đáng kể
-- **Ví dụ**:
-  - Chỉ chữ thường: 26^8 ≈ 208.8 billion組合
-  - Chữ thường + hoa: 52^8 ≈ 53.4 trillion組合 (tăng 256x)
-  - Chữ thường + hoa + số: 62^8 ≈ 218.3 trillion組合
-  - Tous 4 bộ ký tự: 94^8 ≈ 6.095 quadrillion組合
+### 2.2.2. Yếu tố độ phức tạp (Character Diversity)
+Bộ ký tự tiêu chuẩn trong mật mã học máy tính thường phân tách thành 4 nhóm:
+1. Chữ cái viết thường (Lowercase): `a - z` (26 ký tự)
+2. Chữ cái viết hoa (Uppercase): `A - Z` (26 ký tự)
+3. Chữ số thập phân (Digits): `0 - 9` (10 ký tự)
+4. Ký tự đặc biệt (Special Symbols): `!@#$%^&*(),.?":{}|<>` (khoảng 32 ký tự)
 
-### Tiêu chuẩn NIST (National Institute of Standards and Technology)
-**NIST Special Publication 800-63B** đề xuất:
-- **Độ dài tối thiểu**: ≥ 8 ký tự (không bắt buộc upper limit nếu cho phép passphrase)
-- **Độ phức tạp**: Bắt buộc tổ hợp từ almeno 2 trong 4 bộ ký tự (hoa, thường, số, đặc biệt)
-  - Tuy nhiên, NIST 2020 đã nhấn mạnh độ dài hơn độ phức tạp
-- **Kiểm tra từ điển từ chối**: Từ chối mật khẩu xuất hiện trong danh sách rò rỉ phổ biến
-- **Không bắt buộc thay đổi định kỳ**: Nếu không có dấu hiệu bị làmimard
-- **Cho phép copy-paste**: Trong trường hợp sử dụng password manager
+Khi một chính sách mật khẩu yêu cầu bắt buộc xuất hiện ít nhất một ký tự từ mỗi nhóm, không gian bộ ký tự hữu dụng mở rộng từ 26 ký tự lên 94 ký tự. Điều này khiến kẻ tấn công không thể thu hẹp không gian tìm kiếm về chỉ chữ thường hoặc chỉ số.
 
-**Đề xuất cho hệ thống**:
-- Độ dài tối thiểu: 10 ký tự
-- Bắt buộc chứa ít nhất:
-  - 1 chữ hoa
-  - 1 chữ thường  
-  - 1 chữ số
-  - 1 ký tự đặc biệt
-- Kiểm tra từ điển từ chối: Loại bỏ top 1000 mật khẩu phổ biến
-- Lưu trữ mật khẩu dưới dạng bcrypt với work factor đủ cao (>=12)
+### 2.2.3. Khuyến nghị từ tiêu chuẩn NIST SP 800-63B
+Tiêu chuẩn **NIST Special Publication 800-63B (Digital Identity Guidelines)** đưa ra các khuyến nghị hiện đại:
+- **Độ dài tối thiểu**: Bắt buộc tối thiểu $\ge 8$ ký tự cho các hệ thống thông thường, và khuyến khích $\ge 12$ ký tự cho tài khoản đặc quyền (Admin).
+- **Kiểm tra danh sách đen (Blacklist Check)**: Hệ thống phải tự động từ chối các mật khẩu nằm trong danh sách rò rỉ phổ biến, mật khẩu mặc định của thiết bị, hoặc mật khẩu chứa thông tin ngữ cảnh cá nhân (như chính tên đăng nhập `username`).
+- **Giao diện trực quan (UI Feedback)**: Cung cấp thanh đo độ mạnh (Password Strength Meter) và danh mục kiểm tra tiêu chuẩn theo thời gian thực để hướng dẫn người dùng thiết lập mật khẩu đạt chuẩn trước khi gửi yêu cầu.
 
-## 2.3. Cơ chế Account Lockout (Khóa tài khoản)
+### 2.2.4. Chính sách được triển khai trong dự án (Nhánh `fix_policy`):
+- **Quy tắc kiểm tra backend**:
+  - Độ dài tối thiểu: $\ge 8$ ký tự (tối đa 100 ký tự).
+  - Bắt buộc chứa ít nhất: 1 chữ hoa, 1 chữ thường, 1 chữ số và 1 ký tự đặc biệt.
+  - Xử lý thông báo lỗi chi tiết qua Pydantic validator, trả về mã lỗi HTTP 400 rõ ràng.
+- **Giao diện frontend**:
+  - Tích hợp component `PasswordStrengthMeter` hiển thị thanh tiến trình 5 cấp độ (*Rất yếu $\rightarrow$ Yếu $\rightarrow$ Trung bình $\rightarrow$ Khá $\rightarrow$ Mạnh đạt chuẩn*).
+  - Danh mục kiểm tra trực quan (Checklist) hiển thị icon đánh dấu trạng thái đạt/chưa đạt của 5 tiêu chí.
 
-**Định nghĩa**: Cơ chế khóa tài khoản tạm thời sau một số lần đăng nhập thất bại liên tiếp, nhằm ngăn chặn cuộc tấn công Brute Force và credential stuffing.
+---
 
-**Thuật toán hoạt động**:
-1. **Theo dõi số lần thất bại**: Mỗi lần đăng nhập sai tăng bộ đếm `failed_login_attempts`
-2. **Kiểm tra ngưỡng**: Khi `failed_login_attempts >= MAX_FAILED_ATTEMPTS` → kích hoạt khóa
-3. **Thiết lập thời gian khóa**: Ghi lại `locked_until = current_time + LOCKOUT_DURATION`
-4. **Từ chối truy cập**: Trong thời gian khóa, tất cả yêu cầu đăng nhập trả về lỗi (thường là HTTP 403)
-5. **Tự động mở khóa**: Khi thời gian hiện tại >= `locked_until`, tự động reset bộ đếm
-6. **Reset khi thành công**: Khi đăng nhập thành công, reset `failed_login_attempts = 0` và `locked_until = NULL`
+## 2.3. Cơ chế Khóa tài khoản (Account Lockout Policy)
 
-**Tham số cấu hình trong dự án**:
-- `MAX_FAILED_ATTEMPTS = 5`: Cho phép sai tối đa 5 lần liên tiếp
-- `LOCKOUT_DURATION_MINUTES = 15`: Khóa tài khoản trong 15 phút
-- **Lý do chọn значение**:
-  - 5 lần: Đủ để cho phép người dùng thật nhập sai do lỗi quên, nhưng đủต่ để chặn Brute Force
-  - 15 phút: Dài đủ để làm chậm đáng kể attacker, nhưng ngắn đủ để không gây 불便 quá lớn cho người dùng thật
+**Định nghĩa**: Account Lockout là cơ chế bảo mật tự động vô hiệu hóa quyền đăng nhập của một tài khoản cụ thể trong một khoảng thời gian xác định sau khi tài khoản đó ghi nhận liên tiếp nhiều lần đăng nhập không thành công.
 
-**Lợi thế bảo mật**:
-- **Chống Brute Force hiệu quả**: Giảm tốc độ попытка từ hàng nghìn/giây xuống 5 lần/15 phút
-- **Ghi log và cảnh báo**: Dễ dàng phát hiện cuộc tấn công qua hệ thống logging
-- **Tái thiết tự động**: Không cần can thiệp quản trị để mở khóa sau thời gian hết hạn
+### 2.3.1. Thuật toán hoạt động của Account Lockout:
+```mermaid
+flowchart TD
+    A[Nhận yêu cầu đăng nhập] --> B{Tài khoản có bị khóa?}
+    B -- Có (now < locked_until) --> C[Trả về HTTP 403 Forbidden kèm số phút còn lại]
+    B -- Hết hạn khóa --> D[Tự động Reset: locked_until = None, failed_attempts = 0]
+    D --> E[Kiểm tra Mật khẩu]
+    B -- Không bị khóa --> E
+    E -- Mật khẩu Đúng --> F[Reset failed_attempts = 0, Cấp Token JWT]
+    E -- Mật khẩu Sai --> G[Tăng failed_attempts += 1]
+    G --> H{failed_attempts >= 5?}
+    H -- Đúng --> I[Khóa tài khoản: locked_until = now + 15 phút, HTTP 403]
+    H -- Sai --> J[Ghi log cảnh báo, Trả về HTTP 401 Unauthorized]
+```
 
-**Nhược điểm cần lưu ý**:
-- **Risk of Account Denial of Service**: Attacker có thể故意 khóa tài khoản người dùng thật
-- **Giải pháp**: Kết hợp với CAPTCHA sau một số lần thất bại, hoặc sử dụngロックOUT dựa trên IP kết hợp với tài khoản
+### 2.3.2. Cấu hình tham số trong dự án:
+- `MAX_FAILED_ATTEMPTS = 5`: Cho phép người dùng nhập sai tối đa 5 lần liên tiếp.
+- `LOCKOUT_DURATION_MINUTES = 15`: Khóa tài khoản trong thời gian 15 phút.
+- **Cơ sở lựa chọn tham số**:
+  - *5 lần*: Đủ dự phòng cho người dùng thật gõ nhầm hoặc quên mật khẩu, nhưng cực kỳ chặt chẽ trước các công cụ dò quét tự động (vốn cần gửi hàng ngàn request).
+  - *15 phút*: Đủ dài để triệt tiêu hiệu quả của các đợt tấn công từ điển (khiến việc thử 1.000 mật khẩu mất hơn 50 giờ thay vì vài giây), đồng thời đủ ngắn để người dùng hợp pháp có thể tự phục hồi phiên làm việc mà không làm gián đoạn trải nghiệm quá mức.
 
-## 2.4. Các cơ chế bổ sung (Tùy chọn)
+### 2.3.3. Đánh giá ưu và nhược điểm:
+- **Ưu điểm**:
+  - Triệt tiêu hoàn toàn kỹ thuật tấn công đoán mật khẩu liên tục (Infinite Guessing) trên cùng một tài khoản.
+  - Tự động mở khóa theo thời gian, không đòi hỏi sự can thiệp thủ công từ quản trị viên.
+  - Ghi vết kiểm toán (Audit Log) rõ ràng phục vụ công tác điều tra an ninh.
+- **Rủi ro tiềm ẩn (Account Denial of Service)**:
+  - Kẻ tấn công có thể cố tình gửi 5 request sai liên tiếp cho tài khoản của Giám đốc hoặc Admin nhằm ngăn cản người dùng thật đăng nhập (tấn công từ chối dịch vụ tài khoản).
+  - **Biện pháp khắc phục**: Kết hợp chặt chẽ với cơ chế Rate Limiting theo địa chỉ IP và mã CAPTCHA để kẻ tấn công không thể dễ dàng gửi request quấy rối hàng loạt.
 
-### Rate Limiting (Giới hạn tốc độ request)
-**Định nghĩa**: Giới hạn số lượng request mà một client (được xác định bằng IP) có thể gửi trong một khoảng thời gian nhất định.
+---
 
-**Thuật toán Token Bucket (triển khai trong dự án)**:
-- Mỗi IP có một "bucket" với sức chứa nhất định (ví dụ: 10 token)
-- Mỗi request tiêu thụ 1 token
-- Bucket được bổ sung lại với tốc độ恒定 (ví dụ: 1 token/6 giây để đạt 10 token/60s)
-- Khi bucket hết token → trả về lỗi (thường là HTTP 429 Too Many Requests)
+## 2.4. Các cơ chế phòng thủ bổ sung (Defense-in-Depth)
 
-**Cấu hình trong dự án sau khi vá lỗi**:
-- **General endpoints**: 10 requests per 60 seconds per IP
-- **Authentication endpoints**: 5 requests per 900 seconds (15 minutes) per IP
-- **Lý do**: 
-  - General endpoints cho phép truy cập bình thường nhưng giới hạn lạm dụng
-  - Auth endpoints có ngưỡng nghiêm ngặt hơn vì là लक्ष点 Brute Force
+### 2.4.1. Giới hạn tần suất yêu cầu (Rate Limiting)
+- **Nguyên lý hoạt động**: Giám sát số lượng yêu cầu HTTP gửi đến từ một địa chỉ IP client trong một khung thời gian trượt (Sliding Window):
+  - *Endpoint công khai*: Tối đa 10 requests / 60 giây.
+  - *Endpoint xác thực (`/api/auth/*`)*: Tối đa 5 requests / 15 phút (900 giây) trên mỗi IP. Khi vượt ngưỡng, hệ thống trả về HTTP 429 Too Many Requests.
+- **Vá lỗ hổng giả mạo IP**: Loại bỏ việc tin cậy mù quáng header `X-Forwarded-For` từ client gửi lên và xóa bỏ hoàn toàn backdoor bí mật `testclient`, chỉ sử dụng IP kết nối socket trực tiếp (`request.client.host`).
 
-**Ưu điểm**:
-- Dễ dàng triển khai và cấu hình
-- Hiệu quả chống lại các cuộc công撃 tự động
-- Có thể áp dụng dựa trên nhiều yếu tố (IP, user account, API key, v.v.)
+### 2.4.2. Cơ chế CAPTCHA tự sinh nội bộ (Self-contained SVG Math CAPTCHA)
+- **Định nghĩa**: Thử thách Turing công khai tự động để phân biệt con người và máy tính (Completely Automated Public Turing test to tell Computers and Humans Apart).
+- **Giải pháp trong đề tài**: Nhóm đã thiết kế một giải pháp CAPTCHA nội bộ độc lập (Self-contained), không phụ thuộc vào dịch vụ bên thứ ba (như Google reCAPTCHA hay Cloudflare Turnstile vốn cần API Key Internet):
+  - *Độ an toàn*: Phép toán ngẫu nhiên (cộng, trừ, nhân 2 số) được sinh động và render trực tiếp thành **hình ảnh vector SVG** với các đường cong sóng lượn và chấm nhiễu chống OCR cơ bản.
+  - *Tính toàn vẹn (Stateless Security)*: Đáp án đúng được mã hóa và ký số bằng JWT (HMAC-SHA256 với `SECRET_KEY`) kèm thời hạn 5 phút. Máy chủ không cần lưu session/cache vào RAM, đảm bảo khả năng mở rộng container.
+  - *Tích hợp giao diện*: Hiển thị trực tiếp trong modal đăng nhập/đăng ký với nút làm mới mã (Refresh) mượt mà; tự động đổi mã mới khi nhập sai để chống tấn công replay.
 
-### CAPTCHA (Completely Automated Public Turing test to tell Computers and Humans Apart)
-**Định nghĩa**: Thử thách designed để phân biệt giữa người dùng thật và bot tự động.
+### 2.4.3. Phòng chống tấn công phân tích thời gian phản hồi (Timing Attack Mitigation)
+- **Vấn đề**: Việc băm mật khẩu bằng Bcrypt tiêu tốn khoảng 150-250ms CPU. Nếu tài khoản không tồn tại mà hệ thống phản hồi ngay sau 2ms, kẻ tấn công đo thời gian phản hồi (Round-trip Time) có thể khẳng định tài khoản nào có thật trên hệ thống (User Enumeration).
+- **Giải pháp**: Tạo sẵn một chuỗi hash giả lập `DUMMY_PASSWORD_HASH`. Khi tài khoản không tồn tại, hàm `verify_password()` vẫn được thực thi đầy đủ chu kỳ băm Bcrypt giả lập, đảm bảo thời gian phản hồi luôn đồng nhất (~150-250ms) trong mọi trường hợp.
 
-**Các loại phổ biến**:
-- **Text-based CAPTCHA**: Nhập ký tự từ hình ảnh bị distort
-- **Image-based CAPTCHA**: Chọn hình ảnh thỏa mãn điều kiện nhất định (ví dụ: "Chọn tất cả ảnh có xe đạp")
-- **reCAPTCHA (Google)**: Phân tích hành vi người dùng, chỉ hiển thị thử thách khi suspicion cao
-- **Cloudflare Turnstile**: Giải pháp hiện đại, ít làm phiền người dùng hơn
-
-**Vị trí triển khai đề xuất**:
-- Sau 2 lần đăng nhập thất bại liên tiếp
-- Kết hợp với Rate Limiting để tạo difesa-in-depth
-- Chỉ áp dụng cho endpoints xác thực để giảmภาระ cho các API khác
-
-**Lợi thế**:
-- Hiệu quả ngặn hầu hết bot tự động
-- Tăng độ tin cậy của hệ thống bảo vệ
-- Dễ dàng tích hợp qua dịch vụ của bên thứ ba
-
-### Tổng quan về difesa-in-depth
-Một hệ thống bảo mật mạnh mẽ nên kết hợp nhiều lớp防御:
-1. **Chính sách mật khẩu mạnh**: Tăng độ khó của mật khẩu
-2. **Rate Limiting**: Giớiandt tần suất request
-3. **Account Lockout**: Ngăn chặn tentatives vô hạn trên cùng một tài khoản
-4. **CAPTCHA**: Phân biệt người thật và bot
-5. **Monitoring và logging**: Phát hiện và phản hồi kịp thời tới các hành động sospechoso
-
-Trong dự án này, các lớp 1-3 đã được triển khai trong nhánh `fix_policy`, tạo thành nền tảng bảo mật tốt mà vẫn đơn giản đủ để học tập và trình bày.
+### 2.4.4. Tổng quan mô hình phòng thủ theo chiều sâu (Defense-in-Depth):
+Mô hình an ninh triển khai trên nhánh `fix_policy` tạo thành 4 lớp bảo vệ liên hoàn:
+1. **Lớp 1 - CAPTCHA & Rate Limiting**: Chặn đứng các công cụ botnet và tool tự động gửi request hàng loạt từ một IP.
+2. **Lớp 2 - Timing Attack Mitigation & IDOR Protection**: Ngăn chặn kẻ tấn công do thám và thu thập danh sách tài khoản hợp lệ.
+3. **Lớp 3 - Account Lockout**: Chặn đứng việc dò đoán mật khẩu nhiều lần trên cùng một tài khoản đích.
+4. **Lớp 4 - Chính sách mật khẩu mạnh**: Đảm bảo không gian khóa đủ lớn để ngay cả khi lọt qua các lớp trên, mật khẩu cũng không thể bị vét cạn bằng từ điển thông thường.
