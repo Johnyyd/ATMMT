@@ -3,29 +3,25 @@
 ## 3.1. Thiết lập môi trường thử nghiệm
 
 ### 3.1.1. Kiến trúc hệ thống mục tiêu (Target System)
-- **Môi trường container**: Đóng gói hoàn chỉnh bằng Docker Compose gồm các dịch vụ độc lập:
-  - *Frontend Web*: Ứng dụng React 18 / TypeScript / Tailwind CSS, lắng nghe trên cổng 8080 nội bộ, phục vụ giao diện Sổ lưu bút và Hồ sơ cá nhân.
-  - *Backend API*: Ứng dụng Python FastAPI, lắng nghe trên cổng 7000 nội bộ, kết nối cơ sở dữ liệu SQLite (`guestbook.db`).
-  - *Tailscale Proxy Containers (`chat` và `chat_ts`)*: Kết nối mạng riêng ảo Tailscale để công khai ứng dụng ra Internet.
-- **Triển khai trên Tên miền thật (Public URL & SSL/TLS)**:
-  - Thay vì thử nghiệm cục bộ trên `localhost`, toàn bộ hệ thống được triển khai trên **tên miền thật có chứng chỉ bảo mật HTTPS** thông qua công nghệ **Tailscale Funnel**:
-    - Giao diện người dùng (Frontend): `https://chat.taild6d848.ts.net/`
-    - Giao diện lập trình ứng dụng (Backend API): `https://chat-ts.taild6d848.ts.net/`
-  - Việc kiểm thử trên môi trường Internet thực tế giúp đánh giá chính xác độ trễ mạng, tính hợp lệ của chứng chỉ SSL/TLS và các cơ chế proxy headers trong thực tế.
+Hệ thống mục tiêu được đóng gói và vận hành dưới dạng các dịch vụ microservices độc lập thông qua Docker Compose:
+- **Dịch vụ Giao diện người dùng (Frontend Web)**: Xây dựng trên nền tảng React 18, TypeScript, Tailwind CSS, Vite. Dịch vụ lắng nghe trên cổng nội bộ 8080, phục vụ trang cá nhân và ứng dụng Sổ lưu bút (Guestbook).
+- **Dịch vụ Xử lý nghiệp vụ (Backend API)**: Xây dựng bằng Python FastAPI, lắng nghe trên cổng nội bộ 7000, tương tác với cơ sở dữ liệu SQLite (`guestbook.db`) qua SQLAlchemy ORM.
+- **Hạ tầng Mạng & Định tuyến Public URL**: Thay vì thực nghiệm cục bộ trên địa chỉ `localhost`, toàn bộ hệ thống được công khai trực tiếp ra mạng Internet thông qua công nghệ **Tailscale Funnel / Serve** kết hợp 2 container proxy:
+  - *Frontend Public URL*: `https://chat.taild6d848.ts.net/` (giao diện người dùng).
+  - *Backend Public URL*: `https://chat-ts.taild6d848.ts.net/` (dịch vụ API độc lập).
 
-### 3.1.2. Công cụ tấn công sử dụng trong đề tài
-- **Burp Suite Professional / Community Edition**:
-  - Web Proxy bắt giữ và kiểm tra lưu lượng HTTP/HTTPS giữa client và máy chủ.
-  - Module **Intruder**: Tự động hóa quá trình gửi hàng loạt yêu cầu xác thực với danh sách từ điển mẫu.
-  - HTTP Match & Replace: Bổ sung các header tùy chỉnh (như `X-Forwarded-For`).
-- **Trình duyệt Web (Google Chrome / Firefox Developer Tools)**: Khảo sát mã nguồn client, kiểm tra tab Network và Console.
-- **Công cụ tra cứu Certificate Transparency Logs (CT Logs)**: Công cụ trực tuyến (như `certkit.io/tools/ct-logs`) dùng để do thám và phát hiện subdomain backend ẩn của mục tiêu.
+Việc kiểm thử trên môi trường Internet có tên miền thật và chứng chỉ SSL/TLS từ Let's Encrypt giúp kết quả đo lường phản ánh chính xác các yếu tố thực tế như: độ trễ mạng (Network Round-Trip Time), cơ chế chuyển tiếp tiêu đề của Reverse Proxy, và tính thực tiễn của các công cụ kiểm thử bảo mật.
+
+### 3.1.2. Bộ công cụ kiểm thử sử dụng trong đề tài
+- **Burp Suite Community / Professional Edition**: Đóng vai trò là HTTP Proxy chặn bắt lưu lượng, biên tập gói tin (Repeater) và tự động hóa tấn công vét cạn theo từ điển (Intruder).
+- **Công cụ điều tra nguồn mở OSINT (Certificate Transparency Logs)**: Sử dụng dịch vụ tra cứu nhật ký chứng chỉ trực tuyến tại `https://www.certkit.io/tools/ct-logs/` để dò quét các subdomain liên quan đến tên miền gốc của mục tiêu.
+- **Trình duyệt Web & Developer Tools**: Sử dụng tab Network, Console và Application trên Google Chrome để kiểm tra tương tác API, phân tích gói tin JSON và các thuộc tính của Cookie.
 
 ---
 
 ## 3.2. Xây dựng danh sách từ điển mật khẩu (Wordlist)
 
-Kẻ tấn công sử dụng file từ điển `passwords.txt` tổng hợp các mật khẩu phổ biến nhất trong các cơ sở dữ liệu rò rỉ thế giới, bao gồm cả mật khẩu mặc định của hệ thống:
+Kẻ tấn công sử dụng tập tin từ điển `passwords.txt` gồm 64 mật khẩu phổ biến nhất được trích xuất từ các bộ từ điển chuẩn công nghiệp (như `SecLists` và `rockyou.txt`):
 
 ```text
 123456
@@ -63,27 +59,28 @@ demo
 test
 ```
 
-> **Ghi chú phân tích:** Mật khẩu `admin123` (mật khẩu mặc định của tài khoản quản trị khi khởi tạo hệ thống trên nhánh `main`) được cố tình sắp xếp ở vị trí thứ 27 trong danh sách. Điều này giúp quan sát rõ ràng quá trình công cụ gửi liên tiếp 26 yêu cầu thất bại trước khi bắt được mã thành công.
+> **Ghi chú kỹ thuật:** Trong kịch bản thực nghiệm trên nhánh mã nguồn khởi điểm (`main`), tài khoản quản trị viên `admin` được cấp mật khẩu mặc định là `admin123`. Mật khẩu này được xếp ở vị trí thứ 27 trong tệp từ điển. Cách bố trí này giúp nhóm quan sát rõ ràng trạng thái gửi liên tiếp 26 yêu cầu thất bại của công cụ trước khi bắt được gói tin thành công ở lần thử thứ 27.
 
 ---
 
-## 3.3. Các bước tiến hành chuỗi tấn công (Attack Kill Chain)
+## 3.3. Các giai đoạn trong chuỗi tấn công (Attack Kill Chain)
 
-Cuộc tấn công trên nhánh chưa vá lỗi (`main`) được thực hiện tuần tự qua 4 bước:
+Cuộc tấn công trên nhánh chưa vá lỗi (`main`) diễn ra tuần tự qua 4 bước:
 
 ```mermaid
 flowchart LR
-    B1[Bước 1: Do thám API Guestbook] --> B2[Bước 2: Tra cứu CT Logs & Swagger UI]
-    B2 --> B3[Bước 3: Thăm dò cơ chế phòng thủ]
-    B3 --> B4[Bước 4: Tấn công Từ điển Burp Suite]
-    B4 --> B5[Chiếm quyền Admin HTTP 200]
+    Step1[1. Do thám API Guestbook & IDOR] --> Step2[2. Dò Subdomain qua CT Logs]
+    Step2 --> Step3[3. Mở Swagger & Tìm Endpoint /token]
+    Step3 --> Step4[4. Thăm dò cơ chế phòng thủ]
+    Step4 --> Step5[5. Chạy Burp Suite Intruder]
+    Step5 --> Step6[Chiếm quyền Admin HTTP 200 OK]
 ```
 
-### Bước 1: Do thám và xác định tài khoản mục tiêu (Reconnaissance)
-1. Kẻ tấn công truy cập trang web `https://chat.taild6d848.ts.net/` với tư cách khách vãng lai.
-2. Mở Công cụ nhà phát triển (F12) $\rightarrow$ Tab **Network**.
-3. Khi xem danh sách lời nhắn trong Sổ lưu bút, hệ thống gửi yêu cầu `GET /api/guestbook`.
-4. Quan sát cấu trúc JSON phản hồi từ máy chủ:
+### Bước 1: Do thám định danh và xác định mục tiêu (Reconnaissance)
+1. Kẻ tấn công truy cập trang web `https://chat.taild6d848.ts.net/` dưới tư cách người dùng khách vãng lai.
+2. Mở Công cụ nhà phát triển trình duyệt (F12) $\rightarrow$ Chuyển sang tab **Network**.
+3. Khi tải danh sách lời nhắn trong ứng dụng Sổ lưu bút, trình duyệt gửi yêu cầu `GET /api/guestbook`.
+4. Quan sát cấu trúc dữ liệu JSON trả về trong phản hồi:
    ```json
    [
      {
@@ -95,90 +92,110 @@ flowchart LR
      }
    ]
    ```
-5. **Kết luận của kẻ tấn công**:
-   - Hệ thống có phân quyền vai trò (`author_role`).
-   - Tồn tại tài khoản quản trị tối cao với tên đăng nhập xác thực là **`admin`** (`user_id = 1`).
-   - Kẻ tấn công thu hẹp 100% mục tiêu vào việc dò tìm mật khẩu của tài khoản `admin`.
+5. **Thông tin tình báo thu thập được**:
+   - Hệ thống có cơ chế phân quyền vai trò (`author_role`).
+   - Tồn tại tài khoản quản trị tối cao với định danh đăng nhập là **`admin`** (`user_id = 1`).
+   - Kiểm tra thêm endpoint `GET /api/users/1` nhận thấy hệ thống không yêu cầu token xác thực, trả về toàn bộ thông tin tài khoản người dùng đầu tiên (lỗ hổng IDOR).
+   - Kẻ tấn công xác định mục tiêu trọng tâm: Tấn công bẻ khóa tài khoản `admin`.
 
 ---
 
 ### Bước 2: Dò quét Subdomain ẩn và khai thác tài liệu Swagger UI
-1. Trên giao diện frontend `https://chat.taild6d848.ts.net/`, kẻ tấn công thử truy cập `/docs` nhưng nhận phản hồi **HTTP 404 Not Found** (do Nginx chỉ chuyển tiếp đường dẫn `/api`).
-2. Kẻ tấn công sử dụng công cụ tra cứu **Certificate Transparency Logs (CT Logs)** tại `https://www.certkit.io/tools/ct-logs/` cho domain gốc `taild6d848.ts.net`.
-3. Do Let's Encrypt bắt buộc công khai toàn bộ chứng chỉ SSL đã cấp phát, kẻ tấn công nhanh chóng phát hiện ra sự tồn tại của subdomain backend độc lập:
-   $$\text{Subdomain Backend: } \mathbf{chat-ts.taild6d848.ts.net}$$
-4. Kẻ tấn công truy cập trực tiếp `https://chat-ts.taild6d848.ts.net/docs` và mở ra toàn bộ tài liệu **Swagger UI**.
-5. **Phát hiện quan trọng**: Trên giao diện web, form đăng nhập sử dụng mã hóa RSA + AES phức tạp (`/api/auth/login`). Tuy nhiên, tài liệu Swagger để lộ một endpoint xác thực thay thế chuẩn OAuth2:
+1. Trên giao diện frontend `https://chat.taild6d848.ts.net/`, kẻ tấn công thử mở đường dẫn `/docs` để đọc tài liệu API, nhưng nhận về phản hồi **HTTP 404 Not Found** (do Nginx reverse-proxy chỉ chuyển tiếp đường dẫn `/api`).
+2. Tuy nhiên, trên giao diện đăng nhập web (`/api/auth/login`), dữ liệu được mã hóa client-side bằng giải thuật lai RSA-2048 và AES-GCM, gây khó khăn cho việc viết script vét cạn trực tiếp. Kẻ tấn công cần tìm một endpoint nhận mật khẩu dạng thô (Plaintext).
+3. Kẻ tấn công sử dụng công cụ tra cứu **Certificate Transparency Logs (CT Logs)** tại `https://www.certkit.io/tools/ct-logs/` đối với tên miền gốc `taild6d848.ts.net`.
+4. Do cơ quan cấp chứng chỉ (Let's Encrypt) bắt buộc công khai toàn bộ chứng chỉ SSL đã cấp phát vào sổ cái CT Logs toàn cầu, kẻ tấn công lập tức phát hiện ra subdomain backend độc lập:
+   $$\mathbf{chat-ts.taild6d848.ts.net}$$
+5. Kẻ tấn công truy cập trực tiếp `https://chat-ts.taild6d848.ts.net/docs` và mở ra toàn bộ giao diện **Swagger UI** của FastAPI do máy chủ chưa tắt cấu hình tài liệu trong môi trường triển khai thực tế.
+6. **Phát hiện điểm yếu then chốt**: Tài liệu Swagger để lộ endpoint xác thực chuẩn OAuth2:
    $$\mathbf{POST\ /api/auth/token}$$
-   Endpoint này nhận dữ liệu thuần `application/x-www-form-urlencoded` với 2 tham số: `username` và `password`. Điều này cho phép kẻ tấn công gửi trực tiếp mật khẩu dạng rõ (Plaintext) bằng các công cụ tự động mà không cần giải mã JavaScript hay RSA.
+   Endpoint này nhận dữ liệu chuẩn `application/x-www-form-urlencoded` với 2 tham số thuần: `username` và `password`. Điều này cho phép kẻ tấn công gửi trực tiếp mật khẩu dưới dạng văn bản rõ mà không cần thực hiện mã hóa RSA trên client.
 
 ---
 
-### Bước 3: Thăm dò cơ chế phòng thủ của hệ thống
-1. Kẻ tấn công gửi thử nghiệm 5 - 10 request đăng nhập sai liên tiếp tới `POST /api/auth/token`.
+### Bước 3: Thăm dò cơ chế phòng vệ của hệ thống
+Trước khi tung ra toàn bộ danh sách từ điển, kẻ tấn công thăm dò các rào cản kỹ thuật của cổng đăng nhập:
+1. Gửi liên tiếp 5 - 10 request sai mật khẩu tới endpoint `POST /api/auth/token`.
 2. **Hiện tượng ghi nhận**:
-   - Tất cả các request đều trả về mã lỗi **HTTP 401 Unauthorized** kèm thông điệp: `"Tên đăng nhập hoặc mật khẩu không đúng"`.
-   - Không xuất hiện mã lỗi khóa tài khoản (HTTP 403), tài khoản `admin` vẫn cho phép tiếp tục thử nghiệm không giới hạn.
-   - Thử nghiệm vượt cơ chế giới hạn tần suất (Rate Limiting) bằng cách chèn header:
+   - Máy chủ luôn trả về mã lỗi **HTTP 401 Unauthorized** kèm thông điệp: `"detail": "Tên đăng nhập hoặc mật khẩu không đúng"`.
+   - Độ dài gói tin phản hồi là cố định (48 bytes).
+   - Tài khoản `admin` không hề bị khóa, không xuất hiện mã lỗi HTTP 403, và không có bất kỳ khoảng trễ phản hồi nhân tạo nào.
+3. **Thăm dò bộ đếm tần suất (Rate Limiting)**:
+   - Khi gửi thử nghiệm với tần suất cao từ 1 địa chỉ IP, kẻ tấn công thử chèn tiêu đề HTTP giả lập client cục bộ:
      ```http
      X-Forwarded-For: testclient
      ```
-     Hệ thống chấp nhận header này và bỏ qua hoàn toàn bộ đếm tần suất.
-3. **Kết luận**: Hệ thống nạn nhân trên nhánh `main` hoàn toàn không có Account Lockout và cơ chế Rate Limiting tồn tại backdoor bypass nghiêm trọng.
+   - Máy chủ chấp nhận tiêu đề này và bỏ qua hoàn toàn việc cộng dồn bộ đếm giới hạn request.
+4. **Kết luận của kẻ tấn công**: Hệ thống trên nhánh `main` không có cơ chế Account Lockout, cơ chế Rate Limiting tồn tại backdoor bypass nghiêm trọng, và cổng đăng nhập không có CAPTCHA. Hệ thống hoàn toàn dễ bị tổn thương trước một cuộc tấn công vét cạn từ điển tự động.
 
 ---
 
-### Bước 4: Thực hiện Tấn công Từ điển với Burp Suite Intruder
-1. Kẻ tấn công cấu hình Burp Suite Proxy để chặn bắt gói tin đăng nhập gửi tới `https://chat-ts.taild6d848.ts.net/api/auth/token`.
-2. Chuyển gói tin sang module **Intruder** (`Ctrl + I`):
-   - **Target**: Host `chat-ts.taild6d848.ts.net`, Port `443`, giao thức HTTPS.
-   - **Attack type**: Chọn chế độ **Sniper**.
-   - **Positions**: Đánh dấu vị trí payload tại trường password:
+### Bước 4: Thực hiện Tấn công Từ điển bằng Burp Suite Intruder
+1. Kẻ tấn công cấu hình trình duyệt định tuyến qua Burp Suite Proxy (cổng `127.0.0.1:8080`).
+2. Gửi một request đăng nhập mẫu tới `https://chat-ts.taild6d848.ts.net/api/auth/token` rồi chuyển gói tin sang module **Intruder** (`Ctrl + I`).
+3. **Cấu hình Intruder**:
+   - **Target**: Host `chat-ts.taild6d848.ts.net`, Port `443`, chọn Use HTTPS.
+   - **Positions**: Chọn kiểu tấn công **Sniper**, đặt vị trí payload tại trường `password`:
      ```http
      POST /api/auth/token HTTP/1.1
      Host: chat-ts.taild6d848.ts.net
+     User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64)
      X-Forwarded-For: testclient
      Content-Type: application/x-www-form-urlencoded
+     Content-Length: 35
 
      username=admin&password=§password§
      ```
-   - **Payloads**: Nạp danh sách từ file `passwords.txt`.
-3. Bấm **Start Attack** và theo dõi bảng kết quả.
+   - **Payloads**: Nạp toàn bộ danh sách từ tệp `passwords.txt`.
+4. Bấm **Start Attack** và theo dõi diễn biến trên bảng kết quả.
 
 ---
 
 ## 3.4. Kết quả thực nghiệm tấn công trên nhánh `main`
 
-### Bảng kết quả ghi nhận từ Burp Suite Intruder:
+### 3.4.1. Dữ liệu ghi nhận từ Burp Suite Intruder
 
-| Request # | Payload (Mật khẩu thử) | HTTP Status | Content-Length | Đánh giá phản hồi |
+Bảng tổng hợp trích xuất từ các request gửi đi:
+
+| Request # | Payload (Mật khẩu thử) | HTTP Status Code | Content-Length (Bytes) | Diễn giải phản hồi từ máy chủ |
 | :---: | :--- | :---: | :---: | :--- |
-| 1 | `123456` | **401 Unauthorized** | 48 | Sai mật khẩu, hệ thống từ chối |
-| 2 | `password` | **401 Unauthorized** | 48 | Sai mật khẩu, hệ thống từ chối |
+| 1 | `123456` | **401 Unauthorized** | 48 | Sai mật khẩu, từ chối cấp token |
+| 2 | `password` | **401 Unauthorized** | 48 | Sai mật khẩu, từ chối cấp token |
+| 3 | `12345678` | **401 Unauthorized** | 48 | Sai mật khẩu, từ chối cấp token |
 | ... | ... | **401 Unauthorized** | 48 | ... |
-| 26 | `admin` | **401 Unauthorized** | 48 | Sai mật khẩu, hệ thống từ chối |
-| **27** | **`admin123`** | **200 OK** | **382** | **Xác thực thành công, cấp Token JWT!** |
-| 28 | `administrator` | 401 Unauthorized | 48 | Tiếp tục thử nếu không dừng |
+| 25 | `trustno1` | **401 Unauthorized** | 48 | Sai mật khẩu, từ chối cấp token |
+| 26 | `admin` | **401 Unauthorized** | 48 | Sai mật khẩu, từ chối cấp token |
+| **27** | **`admin123`** | **200 OK** | **382** | **Mật khẩu chính xác! Cấp phát Access Token** |
+| 28 | `administrator` | 401 Unauthorized | 48 | Tiếp tục gửi nếu không đặt điều kiện dừng |
 
-### Phân tích gói tin bẻ khóa thành công:
-Tại dòng thử thứ 27 với mật khẩu `admin123`:
-1. Mã trạng thái HTTP đột ngột chuyển từ **401** sang **200 OK**.
-2. Chiều dài gói tin tăng vọt từ 48 bytes lên **382 bytes**.
-3. Phản hồi trả về kèm Cookie bảo mật chứa chuỗi `access_token`:
+### 3.4.2. Phân tích gói tin bẻ khóa thành công
+Tại dòng thử thứ 27 với giá trị mật khẩu `admin123`:
+1. **Mã trạng thái HTTP**: Đột ngột chuyển đổi từ chuỗi **401 Unauthorized** sang **200 OK**.
+2. **Kích thước phản hồi**: Tăng vọt từ 48 bytes lên **382 bytes**.
+3. **Tiêu đề phản hồi (Response Header)**: Máy chủ trả về tiêu đề `Set-Cookie` thiết lập cookie `access_token` chứa chuỗi JWT hợp lệ:
+   ```http
+   HTTP/1.1 200 OK
+   Content-Type: application/json
+   Set-Cookie: access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; Path=/; Secure; HttpOnly; SameSite=strict
+   ```
+4. **Nội dung phản hồi (Response Body)**: Máy chủ xác nhận phiên đăng nhập của tài khoản quản trị:
    ```json
    {
      "user": {
        "id": 1,
        "username": "admin",
-       "role": "admin"
+       "role": "admin",
+       "created_at": "2026-09-24T08:15:30",
+       "display_name": null,
+       "bio": null
      }
    }
    ```
-4. Kẻ tấn công trích xuất token này nạp vào trình duyệt hoặc gửi trực tiếp trong header `Cookie: access_token=...` để thực hiện toàn quyền quản trị (xóa/sửa bài viết của người khác, thay đổi cấu hình hệ thống).
+5. Kẻ tấn công trích xuất token này nạp vào phiên làm việc của trình duyệt hoặc sử dụng trực tiếp trong các lệnh `curl` tiếp theo để thực hiện các thao tác quản trị viên: chỉnh sửa bài viết của người dùng khác, xóa dữ liệu trên hệ thống Sổ lưu bút, hoặc thay đổi cấu hình tài khoản.
 
-### Kết luận Kịch bản 1:
-Cuộc tấn công từ điển đã bẻ khóa thành công tài khoản quản trị `admin` chỉ sau chưa đầy **3 giây** với 27 request. Nguyên nhân trực tiếp là do:
-- Mật khẩu mặc định yếu (`admin123`).
-- Thiếu cơ chế khóa tài khoản khi nhập sai liên tiếp.
-- Rate Limiting bị qua mặt hoàn toàn bởi header giả mạo.
-- Thiếu cơ chế CAPTCHA ngăn chặn công cụ tự động.
+### 3.4.3. Đánh giá nguyên nhân gốc rễ (Root Cause Analysis)
+Cuộc tấn công từ điển đã chiếm quyền điều khiển tài khoản quản trị viên thành công chỉ sau **2,8 giây** với 27 yêu cầu gửi đi. Nguyên nhân trực tiếp dẫn tới sự cố bao gồm 4 yếu tố:
+1. **Chính sách mật khẩu yếu**: Cho phép hệ thống tồn tại tài khoản đặc quyền sử dụng mật khẩu mặc định phổ biến (`admin123`).
+2. **Thiếu vắng hoàn toàn cơ chế Account Lockout**: Hệ thống cho phép kẻ tấn công thử sai liên tục 26 lần mà không hề kích hoạt bất kỳ trạng thái khóa tài khoản hay làm chậm thời gian xử lý.
+3. **Lỗ hổng logic trong Rate Limiting**: Bộ kiểm soát tần suất tin cậy tiêu đề do client tự tạo (`X-Forwarded-For: testclient`), làm tê liệt cơ chế bảo vệ theo địa chỉ IP.
+4. **Không có thử thách kiểm định người-máy (CAPTCHA)**: Cổng đăng nhập cho phép các công cụ tự động gửi yêu cầu với tốc độ cao mà không có bất kỳ rào cản nào để phân biệt giữa người dùng thật và phần mềm tấn công.
