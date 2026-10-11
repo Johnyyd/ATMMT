@@ -1,0 +1,279 @@
+MÔ TẢ CHI TIẾT BỘ ẢNH DEMO TẤN CÔNG BRUTE FORCE
+Dự án: ATMMT - Tấn công Brute Force và Chính sách Mật khẩu
+Vai trò: Người 1 - Kỹ thuật Tấn công
+Phạm vi: Chỉ thực hiện trên hệ thống lab do nhóm tự xây dựng và có quyền kiểm thử.
+
+============================================================
+1. MỤC TIÊU THỰC NGHIỆM
+============================================================
+
+Mục tiêu của phần Người 1 là mô phỏng một chuỗi tấn công từ bước do thám đến khi tìm được thông tin đăng nhập hợp lệ trên hệ thống lab.
+
+Chuỗi thực nghiệm:
+Do thám Guestbook
+-> phát hiện tài khoản admin
+-> truy cập Swagger của Backend
+-> phát hiện endpoint POST /api/auth/token
+-> bắt request đăng nhập bằng Burp Suite
+-> gửi request sang Intruder
+-> cấu hình vị trí payload tại trường password
+-> nạp wordlist
+-> chạy Dictionary Attack
+-> phát hiện password admin123 trả về HTTP 200 OK
+
+Kết quả cần chứng minh:
+- Các mật khẩu sai trả HTTP 401 Unauthorized.
+- Mật khẩu đúng "admin123" trả HTTP 200 OK.
+- Response xác nhận tài khoản username "admin" và role "admin".
+
+============================================================
+2. MÔ TẢ CHI TIẾT CÁC ẢNH
+============================================================
+
+01_guestbook_leak_admin.png
+
+Nội dung:
+- Mở trang Public Guestbook.
+- Mở Developer Tools bằng F12.
+- Chuyển sang tab Network.
+- Chọn request "guestbook".
+- Xem tab Response.
+
+Thông tin quan trọng:
+- author_name: "admin"
+- user_id: 1
+- author_role: "admin"
+
+Ý nghĩa:
+API Guestbook công khai trả về thông tin tài khoản của người đăng bài. Từ dữ liệu này có thể xác định hệ thống tồn tại tài khoản username "admin" và tài khoản này có role "admin".
+
+------------------------------------------------------------
+
+02_swagger_auth_token.png
+
+Nội dung:
+- Truy cập Swagger UI Backend:
+  https://chat-ts.tail422569.ts.net/docs
+- Tìm endpoint POST /api/auth/token.
+- Chọn "Try it out".
+
+Swagger cho thấy endpoint sử dụng:
+Content-Type: application/x-www-form-urlencoded
+
+Các trường quan trọng:
+- username
+- password
+
+Ví dụ:
+username = admin
+password = 123456
+
+Ý nghĩa:
+Swagger công khai giúp xác định trực tiếp endpoint xác thực và định dạng request.
+
+------------------------------------------------------------
+
+03_burp_intercept_request.png
+
+Nội dung:
+- Mở Burp Suite Community Edition.
+- Vào Proxy -> Intercept.
+- Bật "Intercept is on".
+- Thực hiện request đăng nhập từ Swagger.
+
+Request bắt được có dạng:
+
+POST /api/auth/token HTTP/2
+Host: chat-ts.tail422569.ts.net
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=&username=admin&password=123456&scope=&client_id=&client_secret=
+
+Ý nghĩa:
+Chứng minh Burp Suite có thể quan sát request xác thực giữa client và Backend của hệ thống lab.
+
+------------------------------------------------------------
+
+04_burp_send_to_intruder.png
+
+Nội dung:
+- Chuột phải vào request POST /api/auth/token.
+- Chọn "Send to Intruder".
+
+Ý nghĩa:
+Đưa request xác thực sang Burp Intruder để tự động thay đổi giá trị password bằng nhiều payload khác nhau.
+
+------------------------------------------------------------
+
+05_burp_payload_position.png
+
+Nội dung:
+- Trong Intruder chọn Sniper attack.
+- Xóa các payload position tự động nếu có bằng "Clear §".
+- Bôi đen riêng giá trị password ban đầu "123456".
+- Nhấn "Add §".
+
+Request sau khi cấu hình:
+
+grant_type=&username=admin&password=§123456§&scope=&client_id=&client_secret=
+
+Lưu ý:
+- Chỉ trường password được chọn làm payload position.
+- Username giữ cố định là admin.
+- Có thể xóa header Content-Length để Burp tự tính lại khi độ dài password thay đổi.
+
+Ý nghĩa:
+Burp sẽ lần lượt thay giá trị nằm giữa hai ký hiệu § bằng từng password trong wordlist.
+
+------------------------------------------------------------
+
+06_burp_wordlist.png
+
+Nội dung:
+- Sang phần Payloads.
+- Payload type: Simple list.
+- Nạp danh sách password thử nghiệm.
+
+Wordlist:
+123456
+password
+111111
+qwerty
+admin
+12345678
+admin123
+secret
+superadmin
+
+Ý nghĩa:
+Đây là Dictionary Attack, tức là thử một danh sách mật khẩu phổ biến thay vì sinh toàn bộ tổ hợp ký tự.
+
+------------------------------------------------------------
+
+07_burp_attack_results.png
+
+Nội dung:
+- Nhấn "Start attack".
+- Burp Intruder gửi lần lượt từng password đến endpoint /api/auth/token.
+
+Kết quả:
+123456      -> 401
+password    -> 401
+111111      -> 401
+qwerty      -> 401
+admin       -> 401
+12345678    -> 401
+admin123    -> 200
+secret      -> 401
+superadmin  -> 401
+
+Ý nghĩa:
+- HTTP 401: thông tin đăng nhập không hợp lệ.
+- admin123 trả HTTP 200 nên khác biệt với các payload còn lại.
+- Response length của request thành công cũng lớn hơn các request thất bại.
+
+------------------------------------------------------------
+
+08_burp_admin123_200_response.png
+
+Nội dung:
+- Chọn dòng payload "admin123".
+- Quan sát phần Response.
+
+Response hiển thị:
+HTTP/2 200 OK
+
+JSON xác nhận:
+"username": "admin"
+"role": "admin"
+
+Ngoài ra response còn có Set-Cookie chứa access_token.
+
+Ý nghĩa:
+Đây là bằng chứng quan trọng nhất của kịch bản. Burp Intruder đã xác định thành công password hợp lệ của tài khoản admin từ wordlist.
+
+Kết quả cuối:
+username: admin
+password tìm được: admin123
+HTTP status: 200 OK
+role: admin
+
+Lưu ý khi đưa ảnh lên GitHub công khai:
+Nên che hoặc crop giá trị access_token/JWT trong header Set-Cookie. Không cần che HTTP 200, username admin và role admin vì đây là dữ liệu minh chứng.
+
+============================================================
+3. KẾT LUẬN THỰC NGHIỆM
+============================================================
+
+Chuỗi tấn công trong môi trường lab đã hoàn thành:
+
+Bước 1: Do thám API Guestbook và phát hiện username "admin".
+Bước 2: Truy cập Swagger Backend và phát hiện POST /api/auth/token.
+Bước 3: Bắt request đăng nhập bằng Burp Proxy và chuyển sang Intruder.
+Bước 4: Cấu hình trường password làm payload position và nạp wordlist.
+Bước 5: Chạy Dictionary Attack.
+Bước 6: Phát hiện "admin123" trả HTTP 200 OK trong khi các password khác trả HTTP 401.
+Bước 7: Kiểm tra response và xác nhận username = admin, role = admin.
+
+Kết quả minh họa rủi ro khi:
+- tài khoản quản trị sử dụng mật khẩu yếu/dễ đoán;
+- endpoint đăng nhập cho phép thử nhiều lần;
+- chưa có Account Lockout;
+- chưa có Rate Limiting đủ mạnh;
+- username/role bị lộ từ API công khai;
+- Swagger Backend được public.
+
+============================================================
+4. DANH SÁCH FILE ĐỀ XUẤT
+============================================================
+
+assets/images/01_guestbook_leak_admin.png
+assets/images/02_swagger_auth_token.png
+assets/images/03_burp_intercept_request.png
+assets/images/04_burp_send_to_intruder.png
+assets/images/05_burp_payload_position.png
+assets/images/06_burp_wordlist.png
+assets/images/07_burp_attack_results.png
+assets/images/08_burp_admin123_200_response.png
+
+File mô tả:
+docs/NGUOI_1_MO_TA_DEMO_TAN_CONG.txt
+
+============================================================
+5. LỆNH GIT GỢI Ý
+============================================================
+
+Từ thư mục gốc ATMMT:
+
+git status
+git add assets/images/
+git add docs/NGUOI_1_MO_TA_DEMO_TAN_CONG.txt
+git commit -m "docs: add brute force attack demo evidence"
+git push origin main
+
+Nếu nhóm dùng branch riêng thì push lên branch cá nhân và tạo Pull Request, không push trực tiếp vào main.
+
+============================================================
+6. PHÂN CÔNG BÀN GIAO
+============================================================
+
+Người 1:
+- Cung cấp bộ ảnh thực nghiệm.
+- Cung cấp file mô tả các bước và kết quả.
+
+Người 3:
+- Dựa trên quy trình trên để quay/cắt video demo.
+
+Người 6:
+- Sử dụng bộ ảnh và phần mô tả để viết Chương 3 "Triển khai tấn công".
+
+Người 10:
+- Có thể sử dụng ảnh 01, 02, 07 và 08 làm ảnh chính trên slide.
+
+============================================================
+7. GHI CHÚ PHẠM VI
+============================================================
+
+Toàn bộ thao tác trong tài liệu này được thực hiện trên hệ thống ATMMT do nhóm tự xây dựng nhằm mục đích học tập, nghiên cứu và minh họa kỹ thuật an toàn mạng.
+
+Không sử dụng quy trình này để thử mật khẩu hoặc kiểm thử trên hệ thống không thuộc quyền quản lý hoặc khi chưa được chủ sở hữu cho phép.
