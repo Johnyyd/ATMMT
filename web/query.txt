@@ -1,0 +1,1 @@
+sqlite3 web/backend/guestbook.db -header -column "SELECT id, username, hashed_password, role, created_at FROM users;"
