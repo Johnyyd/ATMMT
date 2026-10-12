@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, ConfigDict
 # --- User & Auth Schemas ---
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50, description="Tên đăng nhập")
-    password: str = Field(..., min_length=6, max_length=100, description="Mật khẩu")
+    password: str = Field(..., min_length=12, max_length=100, description="Mật khẩu toi thieu 12 ky tu")
 
 class UserLogin(BaseModel):
     username: str = Field(..., description="Tên đăng nhập")
@@ -40,7 +40,7 @@ class UserProfileUpdate(BaseModel):
 
 class UserPasswordUpdate(BaseModel):
     current_password: str
-    new_password: str = Field(..., min_length=6, max_length=100)
+    new_password: str = Field(..., min_length=12, max_length=100, description="Mật khẩu mới tối thiểu 12 ký tự")
 
 class EncryptedPayload(BaseModel):
     encrypted_key: str

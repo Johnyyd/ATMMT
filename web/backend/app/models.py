@@ -10,6 +10,17 @@ class User(Base):
     username = Column(String(50), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     role = Column(String(20), default="user", nullable=False)  # "admin" or "user"
+        # Account Lockout
+    failed_login_attempts = Column(
+        Integer,
+        default=0,
+        nullable=False
+    )
+
+    locked_until = Column(
+        DateTime,
+        nullable=True
+    )
     # Profile fields
     avatar_url = Column(String(255), nullable=True)
     cover_url = Column(String(255), nullable=True)
